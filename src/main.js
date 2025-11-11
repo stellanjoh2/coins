@@ -74,7 +74,7 @@ new THREE.TextureLoader().load(
 )
 
 const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100)
-camera.position.set(0, 2.6, 11)
+camera.position.set(0, 1.8, 11.5)
 scene.add(camera)
 
 const clock = new THREE.Clock()
@@ -90,7 +90,15 @@ scene.add(dust)
 
 createLighting()
 
-const composer = new EffectComposer(renderer)
+const renderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, {
+  type: THREE.HalfFloatType,
+  format: THREE.RGBAFormat,
+  depthBuffer: true,
+  stencilBuffer: false,
+  samples: renderer.capabilities.isWebGL2 ? 4 : 0,
+})
+
+const composer = new EffectComposer(renderer, renderTarget)
 composer.setSize(window.innerWidth, window.innerHeight)
 composer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 const renderPass = new RenderPass(scene, camera)
@@ -109,11 +117,35 @@ chromaticAberrationPass.uniforms.direction.value.set(1.0, 0.5)
 chromaticAberrationPass.uniforms.offset.value.set(0.0013, -0.0013)
 composer.addPass(chromaticAberrationPass)
 
-const bokehPass = new BokehPass(scene, camera, {
+class SmoothBokehPass extends BokehPass {
+  constructor(scene, camera, params, excluded = []) {
+    super(scene, camera, params)
+    this.ignore = excluded
+    this._visibility = new Map()
+  }
+
+  render(renderer, writeBuffer, readBuffer) {
+    this.ignore.forEach((object3d) => {
+      if (!object3d) return
+      this._visibility.set(object3d, object3d.visible)
+      object3d.visible = false
+    })
+
+    super.render(renderer, writeBuffer, readBuffer)
+
+    this.ignore.forEach((object3d) => {
+      if (!object3d) return
+      const prev = this._visibility.get(object3d)
+      object3d.visible = prev === undefined ? true : prev
+    })
+  }
+}
+
+const bokehPass = new SmoothBokehPass(scene, camera, {
   focus: 8.0,
   aperture: 0.00035,
   maxblur: 0.008,
-})
+}, [dust])
 composer.addPass(bokehPass)
 
 bindUI({
@@ -141,13 +173,19 @@ function animate() {
     coin.mesh.rotation.y =
       coin.baseRotationY + Math.sin(elapsed * 0.2 + coin.phase * 0.5) * 0.05
     coin.mesh.rotation.z = coin.spinOffset + elapsed * coin.spinSpeed
-    coin.mesh.position.y = coin.baseY + Math.sin(elapsed * 0.9 + coin.phase) * coin.sway
-    coin.mesh.position.x = coin.baseX + Math.sin(elapsed * 0.6 + coin.phase) * 0.3
-    coin.mesh.position.z = coin.baseZ + Math.sin(elapsed * 0.18 + coin.phase * 0.7) * 0.35
+    coin.mesh.position.y =
+      coin.baseY + Math.sin(elapsed * 0.85 + coin.phase) * coin.sway + elapsed * 0.02
+    coin.mesh.position.x =
+      coin.baseX + Math.sin(elapsed * 0.55 + coin.phase) * (0.35 + coin.sway * 0.15)
+    coin.mesh.position.z =
+      coin.baseZ + Math.sin(elapsed * 0.18 + coin.phase * 0.7) * (0.45 + coin.sway * 0.2)
   })
 
-  dust.rotation.y += 0.0008
-  dust.position.y = Math.sin(elapsed * 0.1) * 0.3
+  dust.rotation.y += 0.0004
+  dust.position.y += 0.004
+  if (dust.position.y > 1.2) {
+    dust.position.y = -1.2
+  }
 
   gradientMaterial.uniforms.uAspect.value = window.innerWidth / window.innerHeight
 
@@ -201,21 +239,21 @@ function createCoins() {
   const materialSet = new Set()
 
   const positions = [
-    { x: -5.2, y: 2.8, z: -1.6 },
-    { x: 3.8, y: 3.5, z: -2.8 },
-    { x: -0.6, y: 1.1, z: 4.2 },
-    { x: 2.1, y: -1.8, z: 3.4 },
-    { x: -3.7, y: -1.1, z: 2.2 },
-    { x: 5.4, y: 0.4, z: 0.6 },
-    { x: -6.4, y: 0.7, z: -3.5 },
-    { x: 1.2, y: 4.4, z: -4.6 },
-    { x: -1.5, y: -3.0, z: -2.4 },
-    { x: 4.6, y: 2.2, z: 2.8 },
+    { x: -7.8, y: 3.6, z: -2.4 },
+    { x: 5.6, y: 4.1, z: -3.6 },
+    { x: -1.2, y: 0.8, z: 5.1 },
+    { x: 3.2, y: -2.3, z: 4.2 },
+    { x: -4.8, y: -1.6, z: 2.9 },
+    { x: 7.4, y: 0.2, z: 0.8 },
+    { x: -8.2, y: 0.9, z: -4.8 },
+    { x: 2.1, y: 5.6, z: -5.4 },
+    { x: -2.8, y: -3.8, z: -3.2 },
+    { x: 6.2, y: 2.9, z: 3.6 },
   ]
 
   positions.forEach((pos) => {
-    const radius = 1.05 + Math.random() * 0.55
-    const depth = 0.19 + Math.random() * 0.06
+    const radius = 1.05 + Math.random() * 0.6
+    const depth = 0.19 + Math.random() * 0.07
     const segments = 96
 
     const geometry = new THREE.CylinderGeometry(radius, radius, depth, segments, 1, false)
@@ -451,9 +489,11 @@ function bindUI({
 
 function playIntroAnimation() {
   const tl = gsap.timeline({ delay: 0.4, defaults: { ease: 'power3.out', duration: 1.2 } })
-  tl.to('.hero-title', { opacity: 1, y: 0, duration: 1.4 }, 0)
-    .to('.hero-subtitle', { opacity: 0.85, y: 0, duration: 1.2 }, 0.1)
-    .to('.hero-cta', { opacity: 1, y: 0, duration: 1.1 }, 0.2)
+  tl.to('.hero-title', { opacity: 1, y: 0, duration: 1.4 }, 0).to(
+    '.hero-cta',
+    { opacity: 1, y: 0, duration: 1.1 },
+    0.15
+  )
 }
 
 function onResize() {
