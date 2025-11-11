@@ -1018,13 +1018,13 @@ function startHeadlineCycle() {
     gsap.timeline()
       .fromTo(
         dynamicEl,
-        { opacity: 0, x: 50 },
-        { opacity: 1, x: 0, duration: 0.6, ease: 'power3.out' }
+        { opacity: 0 },
+        { opacity: 1, duration: 0.55, ease: 'power2.out' }
       )
       .to({}, { duration: 1.6, onComplete: loop })
   }
 
-  gsap.set(dynamicEl, { opacity: 1, x: 0 })
+  gsap.set(dynamicEl, { opacity: 1 })
   gsap.to({}, { duration: 1.6, onComplete: loop })
 }
 
