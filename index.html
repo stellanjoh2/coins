@@ -11,7 +11,7 @@
     />
     <link rel="icon" type="image/svg+xml" href="./vite.svg" />
     <title>Coldcoins Hero</title>
-    <script type="module" crossorigin src="./assets/index-C6IS338x.js"></script>
+    <script type="module" crossorigin src="./assets/index-Dptzm5jx.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/index-hZy82NIu.css">
   </head>
   <body>
@@ -100,34 +100,49 @@
           <h3>Fog</h3>
           <label>
             Strength
-            <input type="range" id="fog-strength" min="0" max="1" step="0.01" value="0.07" />
+            <input type="range" id="fog-strength" min="0" max="1" step="0.01" value="0.65" />
           </label>
           <label>
             Distance
-            <input type="range" id="fog-distance" min="8" max="80" step="1" value="18" />
+            <input type="range" id="fog-distance" min="8" max="80" step="1" value="32" />
           </label>
           <label>
             Color
-            <input type="color" id="fog-color" value="#a880ff" />
+            <input type="color" id="fog-color" value="#4c13c9" />
           </label>
         </section>
         <section>
           <h3>Coins</h3>
           <label>
             Amount
-            <input type="number" id="coin-amount" min="3" max="40" step="1" value="10" />
+            <input type="number" id="coin-amount" min="3" max="40" step="1" value="24" />
           </label>
           <label>
             Scatter
-            <input type="range" id="coin-scatter" min="3" max="16" step="0.1" value="8.4" />
+            <input type="range" id="coin-scatter" min="3" max="16" step="0.1" value="10.3" />
           </label>
           <label>
             Rotation Speed
-            <input type="range" id="coin-rotation" min="0.3" max="2.5" step="0.01" value="1" />
+            <input type="range" id="coin-rotation" min="0.3" max="2.5" step="0.01" value="1.59" />
           </label>
           <label>
             Scale
-            <input type="range" id="coin-scale" min="0.6" max="1.8" step="0.01" value="1" />
+            <input type="range" id="coin-scale" min="0.6" max="1.8" step="0.01" value="1.23" />
+          </label>
+        </section>
+        <section>
+          <h3>Camera</h3>
+          <label>
+            Shake Amplitude
+            <input type="range" id="camera-shake-amp" min="0" max="0.2" step="0.001" value="0.2" />
+          </label>
+          <label>
+            Shake Frequency
+            <input type="range" id="camera-shake-freq" min="0" max="1" step="0.01" value="0.85" />
+          </label>
+          <label>
+            Drift Focus Height
+            <input type="range" id="camera-look-height" min="0" max="2" step="0.01" value="0.82" />
           </label>
         </section>
         <button id="copy-settings">Copy Settings</button>
