@@ -469,9 +469,15 @@ function bindUI({
   elements.coinScatter.value = coinSettings.scatter
   elements.coinRotation.value = coinSettings.rotationSpeed
   elements.coinScale.value = coinSettings.scale
-  elements.cameraShakeAmp.value = cameraShake.amplitude
-  elements.cameraShakeFreq.value = cameraShake.frequency
-  elements.cameraLookHeight.value = cameraShake.lookHeight
+  if (elements.cameraShakeAmp) {
+    elements.cameraShakeAmp.value = cameraShake.amplitude
+  }
+  if (elements.cameraShakeFreq) {
+    elements.cameraShakeFreq.value = cameraShake.frequency
+  }
+  if (elements.cameraLookHeight) {
+    elements.cameraLookHeight.value = cameraShake.lookHeight
+  }
 
   function updateBloom() {
     bloomPass.enabled = elements.bloomEnabled.checked
@@ -523,9 +529,15 @@ function bindUI({
   }
 
   function updateCamera() {
-    cameraShake.amplitude = parseFloat(elements.cameraShakeAmp.value)
-    cameraShake.frequency = parseFloat(elements.cameraShakeFreq.value)
-    cameraShake.lookHeight = parseFloat(elements.cameraLookHeight.value)
+    if (elements.cameraShakeAmp) {
+      cameraShake.amplitude = parseFloat(elements.cameraShakeAmp.value)
+    }
+    if (elements.cameraShakeFreq) {
+      cameraShake.frequency = parseFloat(elements.cameraShakeFreq.value)
+    }
+    if (elements.cameraLookHeight) {
+      cameraShake.lookHeight = parseFloat(elements.cameraLookHeight.value)
+    }
   }
 
   function copySettings() {
@@ -561,11 +573,14 @@ function bindUI({
         rotationSpeed: coinSettings.rotationSpeed,
         scale: coinSettings.scale,
       },
-      camera: {
-        amplitude: parseFloat(elements.cameraShakeAmp.value),
-        frequency: parseFloat(elements.cameraShakeFreq.value),
-        lookHeight: parseFloat(elements.cameraLookHeight.value),
-      },
+      camera:
+        elements.cameraShakeAmp && elements.cameraShakeFreq && elements.cameraLookHeight
+          ? {
+              amplitude: parseFloat(elements.cameraShakeAmp.value),
+              frequency: parseFloat(elements.cameraShakeFreq.value),
+              lookHeight: parseFloat(elements.cameraLookHeight.value),
+            }
+          : undefined,
       environment: {
         reflection: parseFloat(elements.envIntensity.value),
       },
@@ -611,9 +626,9 @@ function bindUI({
   elements.coinScatter.addEventListener('input', updateCoins)
   elements.coinRotation.addEventListener('input', updateCoins)
   elements.coinScale.addEventListener('input', updateCoins)
-  elements.cameraShakeAmp.addEventListener('input', updateCamera)
-  elements.cameraShakeFreq.addEventListener('input', updateCamera)
-  elements.cameraLookHeight.addEventListener('input', updateCamera)
+  elements.cameraShakeAmp?.addEventListener('input', updateCamera)
+  elements.cameraShakeFreq?.addEventListener('input', updateCamera)
+  elements.cameraLookHeight?.addEventListener('input', updateCamera)
 
   elements.copyButton.addEventListener('click', copySettings)
 
