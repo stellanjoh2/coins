@@ -1008,10 +1008,10 @@ function startHeadlineCycle() {
 
   let index = 0
 
-  const buildWord = (text, immediate = false) => {
+  const buildLetters = (text, immediate = false) => {
     dynamicEl.innerHTML = ''
-    const letters = [...text]
-    letters.forEach((char) => {
+    const chars = [...text]
+    chars.forEach((char) => {
       const span = document.createElement('span')
       span.className = 'hero-letter'
       span.textContent = char === ' ' ? '\u00A0' : char
@@ -1023,23 +1023,22 @@ function startHeadlineCycle() {
     return dynamicEl.querySelectorAll('.hero-letter')
   }
 
-  const currentLetters = buildWord(dynamicHeadlineWords[index], true)
-  gsap.set(currentLetters, { yPercent: 0 })
+  buildLetters(dynamicHeadlineWords[index], true)
 
   const cycle = () => {
-    const lettersOut = dynamicEl.querySelectorAll('.hero-letter')
+    const outLetters = dynamicEl.querySelectorAll('.hero-letter')
 
-    gsap.to(lettersOut, {
-      yPercent: -120,
+    gsap.to(outLetters, {
+      yPercent: -110,
       duration: 0.35,
       ease: 'power3.in',
       stagger: 0.02,
       onComplete: () => {
         index = (index + 1) % dynamicHeadlineWords.length
-        const lettersIn = buildWord(dynamicHeadlineWords[index])
+        const inLetters = buildLetters(dynamicHeadlineWords[index])
         gsap.fromTo(
-          lettersIn,
-          { yPercent: 120 },
+          inLetters,
+          { yPercent: 110 },
           {
             yPercent: 0,
             duration: 0.65,
