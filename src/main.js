@@ -226,6 +226,7 @@ uiControls = bindUI({
   coinMaterials,
   fogSettings,
   coinSettings,
+  cameraShake,
   rebuildCoins,
   applyFog,
   composer,
