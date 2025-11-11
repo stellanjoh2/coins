@@ -1007,28 +1007,54 @@ function startHeadlineCycle() {
   if (!dynamicEl || dynamicHeadlineWords.length === 0) return
 
   let index = 0
-  dynamicEl.textContent = dynamicHeadlineWords[0]
-  gsap.set(dynamicEl, { opacity: 1 })
 
-  const cycle = () => {
-    const nextIndex = (index + 1) % dynamicHeadlineWords.length
-    const nextWord = dynamicHeadlineWords[nextIndex]
-
-    gsap.timeline({
-      defaults: { ease: 'power2.inOut' },
-      onComplete: () => {
-        index = nextIndex
-        gsap.delayedCall(1.4, cycle)
-      },
+  const buildWord = (text, immediate = false) => {
+    dynamicEl.innerHTML = ''
+    const letters = [...text]
+    letters.forEach((char) => {
+      const span = document.createElement('span')
+      span.className = 'hero-letter'
+      span.textContent = char === ' ' ? '\u00A0' : char
+      if (immediate) {
+        span.style.transform = 'translateY(0%)'
+      }
+      dynamicEl.appendChild(span)
     })
-      .to(dynamicEl, { opacity: 0, duration: 0.35 })
-      .add(() => {
-        dynamicEl.textContent = nextWord
-      })
-      .to(dynamicEl, { opacity: 1, duration: 0.45 })
+    return dynamicEl.querySelectorAll('.hero-letter')
   }
 
-  gsap.delayedCall(1.6, cycle)
+  const currentLetters = buildWord(dynamicHeadlineWords[index], true)
+  gsap.set(currentLetters, { yPercent: 0 })
+
+  const cycle = () => {
+    const lettersOut = dynamicEl.querySelectorAll('.hero-letter')
+
+    gsap.to(lettersOut, {
+      yPercent: -120,
+      duration: 0.35,
+      ease: 'power3.in',
+      stagger: 0.02,
+      onComplete: () => {
+        index = (index + 1) % dynamicHeadlineWords.length
+        const lettersIn = buildWord(dynamicHeadlineWords[index])
+        gsap.fromTo(
+          lettersIn,
+          { yPercent: 120 },
+          {
+            yPercent: 0,
+            duration: 0.65,
+            ease: 'expo.out',
+            stagger: 0.025,
+            onComplete: () => {
+              gsap.delayedCall(1.4, cycle)
+            },
+          }
+        )
+      },
+    })
+  }
+
+  gsap.delayedCall(1.4, cycle)
 }
 
 function onResize() {
