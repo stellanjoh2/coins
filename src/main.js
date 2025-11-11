@@ -999,8 +999,7 @@ function bindUI({
 function playIntroAnimation() {
   const tl = gsap.timeline({ delay: 0.4, defaults: { ease: 'power3.out', duration: 1.2 } })
   tl.to('.hero-title', { opacity: 1, y: 0, duration: 1.4 }, 0)
-    .to('.hero-cta', { opacity: 1, y: 0, duration: 1.1 }, 0.25)
-    .add(() => startHeadlineCycle(), '-=0.3')
+    .add(() => startHeadlineCycle(), '-=0.1')
 }
 
 function startHeadlineCycle() {
