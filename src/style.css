@@ -53,7 +53,7 @@ body {
 }
 
 .hero-text {
-  max-width: min(96vw, 70rem);
+  max-width: min(96vw, 68rem);
   pointer-events: auto;
   text-align: left;
   display: flex;
@@ -64,17 +64,19 @@ body {
 }
 
 .hero-headline {
-  display: grid;
-  grid-auto-rows: auto;
-  justify-items: start;
-  align-items: start;
-  row-gap: clamp(0.15rem, 0.6vw, 0.35rem);
+  display: flex;
+  flex-direction: column;
+  gap: clamp(0.4rem, 1vw, 0.6rem);
+  margin: 0;
+}
+
+.hero-line {
   font-family: 'Inter Tight', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  line-height: 0.84;
+  font-size: clamp(12rem, 16vw, 18rem);
+  font-weight: 700;
+  line-height: 0.85;
   letter-spacing: -0.02em;
-  min-width: clamp(18ch, 30vw, 34ch);
-  text-shadow: 0 0 40px rgba(138, 76, 255, 0.5), 0 18px 60px rgba(138, 76, 255, 0.35);
-  mix-blend-mode: screen;
+  white-space: nowrap;
 }
 
 .hero-word {
