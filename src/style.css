@@ -6,6 +6,14 @@
   -webkit-font-smoothing: antialiased;
 }
 
+@font-face {
+  font-family: 'PPAcma Light Italic';
+  src: url('/Fonts/PPAcma-LightItalic.otf') format('opentype');
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+
 *,
 *::before,
 *::after {
@@ -57,11 +65,11 @@ body {
 }
 
 .hero-title {
-  font-family: 'Inter Tight', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: clamp(8rem, 18vw, 13rem);
-  line-height: 0.95;
-  font-weight: 700;
-  letter-spacing: -0.04em;
+  font-family: 'PPAcma Light Italic', 'Inter Tight', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: clamp(9rem, 19vw, 14.5rem);
+  line-height: 0.9;
+  font-weight: 300;
+  letter-spacing: -0.2em;
   margin: 0 0 3.5rem;
   opacity: 0;
   transform: translateY(40px);
