@@ -116,6 +116,12 @@ const cameraShake = {
   offset: new THREE.Vector3(),
 }
 
+const pointLightSettings = {
+  intensity: 2.1,
+  distance: 14,
+  color: '#8d4bff',
+}
+
 const baseCameraPosition = new THREE.Vector3().copy(camera.position)
 
 const { gradientMaterial, gradientMesh } = createGradientBackground()
@@ -129,6 +135,7 @@ let uiControls = null
 let coinTemplate = null
 let coinTemplateScale = 1
 const coinTemplateCenter = new THREE.Vector3()
+let heroPointLight = null
 
 gltfLoader.load(
   coinModelUrl,
@@ -239,6 +246,7 @@ uiControls = bindUI({
   fogSettings,
   coinSettings,
   cameraShake,
+  pointLightSettings,
   rebuildCoins,
   applyFog,
   composer,
@@ -397,6 +405,15 @@ function createLighting() {
   const fillLight = new THREE.PointLight(0x66aaff, 1.4, 18)
   fillLight.position.set(0, -1.5, 3.5)
   scene.add(fillLight)
+
+  heroPointLight = new THREE.PointLight(
+    new THREE.Color(pointLightSettings.color),
+    pointLightSettings.intensity,
+    pointLightSettings.distance
+  )
+  heroPointLight.position.set(0, 0.9, 0.4)
+  heroPointLight.castShadow = false
+  scene.add(heroPointLight)
 }
 
 function rebuildCoins() {
@@ -484,13 +501,47 @@ function rebuildCoins() {
   }
 }
 
+function findSpawnPosition(targetCoin) {
+  const scatter = coinSettings.scatter
+  const minDistance =
+    (baseCoinDimensions.radius * coinSettings.scale * 2) * 0.85 + 0.6
+  const minDistanceSq = minDistance * minDistance
+  const attempts = 60
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const x = (Math.random() - 0.5) * scatter * 2.4
+    const z = (Math.random() - 0.5) * scatter * 2.2
+
+    let separated = true
+    for (const other of coins) {
+      if (other === targetCoin) continue
+      const dx = x - other.baseX
+      const dz = z - other.baseZ
+      if (dx * dx + dz * dz < minDistanceSq) {
+        separated = false
+        break
+      }
+    }
+
+    if (separated) {
+      return { x, z }
+    }
+  }
+
+  return {
+    x: (Math.random() - 0.5) * scatter * 2.4,
+    z: (Math.random() - 0.5) * scatter * 2.2,
+  }
+}
+
 function alignCoinState(coin, initial = false) {
   const scatter = coinSettings.scatter
   const spawnDepth = -scatter * 1.7 - 1.5 - Math.random() * 1.8
   const visibleTop = scatter * 1.25 + 1.6
 
-  coin.baseX = (Math.random() - 0.5) * scatter * 2.4
-  coin.baseZ = (Math.random() - 0.5) * scatter * 2.2
+  const spawnPos = findSpawnPosition(coin)
+  coin.baseX = spawnPos.x
+  coin.baseZ = spawnPos.z
   coin.baseRotationX = (Math.random() - 0.5) * 0.35
   coin.baseRotationY = (Math.random() - 0.5) * 0.65
   coin.spinOffset = Math.random() * Math.PI * 2
@@ -547,6 +598,7 @@ function bindUI({
   fogSettings,
   coinSettings,
   cameraShake,
+  pointLightSettings,
   rebuildCoins,
   applyFog,
   composer,
@@ -575,6 +627,9 @@ function bindUI({
     cameraShakeAmp: document.getElementById('camera-shake-amp'),
     cameraShakeFreq: document.getElementById('camera-shake-freq'),
     cameraLookHeight: document.getElementById('camera-look-height'),
+    lightStrength: document.getElementById('light-strength'),
+    lightRadius: document.getElementById('light-radius'),
+    lightColor: document.getElementById('light-color'),
     copyButton: document.getElementById('copy-settings'),
   }
 
@@ -594,6 +649,15 @@ function bindUI({
   }
   if (elements.cameraLookHeight) {
     elements.cameraLookHeight.value = cameraShake.lookHeight
+  }
+  if (elements.lightStrength) {
+    elements.lightStrength.value = pointLightSettings.intensity
+  }
+  if (elements.lightRadius) {
+    elements.lightRadius.value = pointLightSettings.distance
+  }
+  if (elements.lightColor) {
+    elements.lightColor.value = pointLightSettings.color
   }
 
   function updateBloom() {
@@ -657,6 +721,22 @@ function bindUI({
     }
   }
 
+  function updatePointLight() {
+    if (!heroPointLight) return
+    if (elements.lightStrength) {
+      pointLightSettings.intensity = parseFloat(elements.lightStrength.value)
+      heroPointLight.intensity = pointLightSettings.intensity
+    }
+    if (elements.lightRadius) {
+      pointLightSettings.distance = parseFloat(elements.lightRadius.value)
+      heroPointLight.distance = pointLightSettings.distance
+    }
+    if (elements.lightColor) {
+      pointLightSettings.color = elements.lightColor.value
+      heroPointLight.color.set(pointLightSettings.color)
+    }
+  }
+
   function copySettings() {
     const config = {
       bloom: {
@@ -696,6 +776,14 @@ function bindUI({
               amplitude: parseFloat(elements.cameraShakeAmp.value),
               frequency: parseFloat(elements.cameraShakeFreq.value),
               lookHeight: parseFloat(elements.cameraLookHeight.value),
+            }
+          : undefined,
+      pointLight:
+        elements.lightStrength && elements.lightRadius && elements.lightColor
+          ? {
+              intensity: parseFloat(elements.lightStrength.value),
+              distance: parseFloat(elements.lightRadius.value),
+              color: elements.lightColor.value,
             }
           : undefined,
       environment: {
@@ -746,6 +834,9 @@ function bindUI({
   elements.cameraShakeAmp?.addEventListener('input', updateCamera)
   elements.cameraShakeFreq?.addEventListener('input', updateCamera)
   elements.cameraLookHeight?.addEventListener('input', updateCamera)
+  elements.lightStrength?.addEventListener('input', updatePointLight)
+  elements.lightRadius?.addEventListener('input', updatePointLight)
+  elements.lightColor?.addEventListener('input', updatePointLight)
 
   elements.copyButton.addEventListener('click', copySettings)
 
@@ -756,6 +847,7 @@ function bindUI({
   updateEnvironment()
   updateFog()
   updateCamera()
+  updatePointLight()
 
   return {
     updateBloom,
@@ -765,6 +857,8 @@ function bindUI({
     updateEnvironment,
     updateFog,
     updateCoins,
+    updateCamera,
+    updatePointLight,
   }
 }
 
