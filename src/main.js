@@ -144,6 +144,9 @@ gltfLoader.load(
       coinTemplateScale = ((baseCoinDimensions.radius * 2) / size.x) * 1
     }
 
+    coinTemplate.rotation.set(Math.PI / 2, 0, 0)
+    coinTemplate.updateMatrixWorld(true)
+
     rebuildCoins()
   },
   undefined,
@@ -244,9 +247,9 @@ function animate() {
 
   coins.forEach((coin) => {
     coin.mesh.rotation.x =
-      coin.baseRotationX + Math.sin(elapsed * 0.45 + coin.phase) * 0.22
+      coin.baseRotationX + Math.sin(elapsed * 0.45 + coin.phase) * 0.3
     coin.mesh.rotation.y =
-      coin.baseRotationY + Math.sin(elapsed * 0.32 + coin.phase * 0.6) * 0.18
+      coin.baseRotationY + Math.sin(elapsed * 0.32 + coin.phase * 0.6) * 0.22
     coin.mesh.rotation.z = coin.spinOffset + elapsed * coin.spinSpeed * 1.6
     coin.mesh.position.y =
       coin.baseY + Math.sin(elapsed * 0.85 + coin.phase) * coin.sway + elapsed * 0.02
@@ -424,8 +427,8 @@ function rebuildCoins() {
       (Math.random() - 0.5) * coinSettings.scatter * 2
     )
 
-    const baseRotationX = Math.PI / 2 + 0.1 + (Math.random() - 0.5) * 0.18
-    const baseRotationY = (Math.random() - 0.5) * 0.55
+    const baseRotationX = 0.08 + (Math.random() - 0.5) * 0.35
+    const baseRotationY = (Math.random() - 0.5) * 0.65
     const spinOffset = Math.random() * Math.PI * 2
     const spinSpeed = (0.12 + Math.random() * 0.08) * coinSettings.rotationSpeed
 
