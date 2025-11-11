@@ -136,6 +136,19 @@ const lightSettings = {
   },
 }
 
+const dynamicHeadlineWords = [
+  'Horizon',
+  'Symphony',
+  'Nebula',
+  'Odyssey',
+  'Cascade',
+  'Aurora',
+  'Infinity',
+  'Velocity',
+  'Radiance',
+  'Elysium',
+]
+
 const baseCameraPosition = new THREE.Vector3().copy(camera.position)
 
 const { gradientMaterial, gradientMesh } = createGradientBackground()
@@ -985,11 +998,37 @@ function bindUI({
 
 function playIntroAnimation() {
   const tl = gsap.timeline({ delay: 0.4, defaults: { ease: 'power3.out', duration: 1.2 } })
-  tl.to('.hero-title', { opacity: 1, y: 0, duration: 1.4 }, 0).to(
-    '.hero-cta',
-    { opacity: 1, y: 0, duration: 1.1 },
-    0.15
-  )
+  tl.to('.hero-title', { opacity: 1, y: 0, duration: 1.4 }, 0)
+    .to('.hero-cta', { opacity: 1, y: 0, duration: 1.1 }, 0.25)
+    .add(() => startHeadlineCycle(), '-=0.3')
+}
+
+function startHeadlineCycle() {
+  const dynamicEl = document.querySelector('.hero-title-dynamic')
+  if (!dynamicEl || dynamicHeadlineWords.length === 0) return
+
+  let index = 0
+  dynamicEl.textContent = dynamicHeadlineWords[0]
+
+  const loop = () => {
+    index = (index + 1) % dynamicHeadlineWords.length
+    const nextWord = dynamicHeadlineWords[index]
+
+    gsap.timeline()
+      .to(dynamicEl, { opacity: 0, y: -40, duration: 0.4, ease: 'power2.in' })
+      .add(() => {
+        dynamicEl.textContent = nextWord
+      })
+      .fromTo(
+        dynamicEl,
+        { opacity: 0, y: 40 },
+        { opacity: 1, y: 0, duration: 0.55, ease: 'power3.out' }
+      )
+      .to({}, { duration: 0.9, onComplete: loop })
+  }
+
+  gsap.to(dynamicEl, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' })
+  gsap.to({}, { duration: 1.5, onComplete: loop })
 }
 
 function onResize() {

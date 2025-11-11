@@ -6,14 +6,6 @@
   -webkit-font-smoothing: antialiased;
 }
 
-@font-face {
-  font-family: 'PPAcma Light Italic';
-  src: url('/Fonts/PPAcma-LightItalic.otf') format('opentype');
-  font-weight: 300;
-  font-style: italic;
-  font-display: swap;
-}
-
 *,
 *::before,
 *::after {
@@ -66,18 +58,35 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: clamp(2rem, 4vw, 4rem);
+  gap: clamp(2.5rem, 5vw, 5rem);
 }
 
 .hero-title {
-  font-family: 'PPAcma Light Italic', 'Inter Tight', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  font-size: clamp(9.5rem, 20vw, 16rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(0.6rem, 1.8vw, 1.2rem);
+  font-family: 'Inter Tight', 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-size: clamp(10.5rem, 21vw, 18.5rem);
   line-height: 0.9;
-  font-weight: 300;
+  font-weight: 700;
   letter-spacing: 0;
   margin: 0;
   opacity: 0;
   transform: translateY(40px);
+}
+
+.hero-title-static {
+  display: block;
+}
+
+.hero-title-dynamic {
+  display: block;
+  font-size: clamp(4.2rem, 8.5vw, 7.5rem);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  opacity: 0.85;
 }
 
 .hero-cta {
