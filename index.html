@@ -94,6 +94,40 @@
             <input type="range" id="env-intensity" min="0" max="3" step="0.01" value="1.85" />
           </label>
         </section>
+        <section>
+          <h3>Fog</h3>
+          <label>
+            Strength
+            <input type="range" id="fog-strength" min="0" max="1" step="0.01" value="0.39" />
+          </label>
+          <label>
+            Distance
+            <input type="range" id="fog-distance" min="8" max="80" step="1" value="22" />
+          </label>
+          <label>
+            Color
+            <input type="color" id="fog-color" value="#6f2bff" />
+          </label>
+        </section>
+        <section>
+          <h3>Coins</h3>
+          <label>
+            Amount
+            <input type="number" id="coin-amount" min="3" max="40" step="1" value="10" />
+          </label>
+          <label>
+            Scatter
+            <input type="range" id="coin-scatter" min="3" max="16" step="0.1" value="8.4" />
+          </label>
+          <label>
+            Rotation Speed
+            <input type="range" id="coin-rotation" min="0.3" max="2.5" step="0.01" value="1" />
+          </label>
+          <label>
+            Scale
+            <input type="range" id="coin-scale" min="0.6" max="1.8" step="0.01" value="1" />
+          </label>
+        </section>
         <button id="copy-settings">Copy Settings</button>
       </div>
     </div>

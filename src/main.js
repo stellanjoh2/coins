@@ -51,8 +51,26 @@ renderer.outputColorSpace = THREE.SRGBColorSpace
 renderer.toneMapping = THREE.ACESFilmicToneMapping
 renderer.toneMappingExposure = 1.05
 
+const fogSettings = {
+  strength: 0.39,
+  distance: 22,
+  color: '#6f2bff',
+}
+
+const coinSettings = {
+  amount: 10,
+  scatter: 8.4,
+  rotationSpeed: 1,
+  scale: 1,
+}
+
+const baseCoinDimensions = {
+  radius: 1.35,
+  depth: 0.24,
+}
+
 const scene = new THREE.Scene()
-scene.fog = new THREE.FogExp2(0x050a12, 0.045)
+scene.fog = new THREE.Fog(new THREE.Color(fogSettings.color), 2, fogSettings.distance)
 
 const pmremGenerator = new THREE.PMREMGenerator(renderer)
 pmremGenerator.compileEquirectangularShader()
@@ -82,8 +100,11 @@ const clock = new THREE.Clock()
 const { gradientMaterial, gradientMesh } = createGradientBackground()
 scene.add(gradientMesh)
 
-const { coins, materials: coinMaterials } = createCoins()
-coins.forEach((coin) => scene.add(coin.mesh))
+const coinMaterials = new Set()
+let coins = []
+const coinGroup = new THREE.Group()
+scene.add(coinGroup)
+let uiControls = null
 
 const dust = createDustParticles()
 scene.add(dust)
@@ -148,12 +169,19 @@ const bokehPass = new SmoothBokehPass(scene, camera, {
 }, [dust])
 composer.addPass(bokehPass)
 
-bindUI({
+applyFog()
+rebuildCoins()
+
+uiControls = bindUI({
   bloomPass,
   chromaticAberrationPass,
   bokehPass,
   gradientMaterial,
   coinMaterials,
+  fogSettings,
+  coinSettings,
+  rebuildCoins,
+  applyFog,
   composer,
 })
 
@@ -234,80 +262,6 @@ function createGradientBackground() {
   return { gradientMaterial: shaderMaterial, gradientMesh: mesh }
 }
 
-function createCoins() {
-  const coins = []
-  const materialSet = new Set()
-
-  const positions = [
-    { x: -7.8, y: 3.6, z: -2.4 },
-    { x: 5.6, y: 4.1, z: -3.6 },
-    { x: -1.2, y: 0.8, z: 5.1 },
-    { x: 3.2, y: -2.3, z: 4.2 },
-    { x: -4.8, y: -1.6, z: 2.9 },
-    { x: 7.4, y: 0.2, z: 0.8 },
-    { x: -8.2, y: 0.9, z: -4.8 },
-    { x: 2.1, y: 5.6, z: -5.4 },
-    { x: -2.8, y: -3.8, z: -3.2 },
-    { x: 6.2, y: 2.9, z: 3.6 },
-  ]
-
-  positions.forEach((pos) => {
-    const radius = 1.05 + Math.random() * 0.6
-    const depth = 0.19 + Math.random() * 0.07
-    const segments = 96
-
-    const geometry = new THREE.CylinderGeometry(radius, radius, depth, segments, 1, false)
-
-    const faceColor = new THREE.Color('#fff6c5')
-    faceColor.offsetHSL(0, (Math.random() - 0.5) * 0.04, (Math.random() - 0.5) * 0.08)
-
-    const faceMaterial = new THREE.MeshPhysicalMaterial({
-      color: faceColor,
-      metalness: 1,
-      roughness: 0.1 + Math.random() * 0.04,
-      clearcoat: 0.82,
-      clearcoatRoughness: 0.03,
-      emissive: faceColor.clone().multiplyScalar(0.16),
-      sheen: 0.35,
-      sheenColor: faceColor.clone().multiplyScalar(0.7),
-      envMapIntensity: 1.85,
-    })
-
-    const rimMaterial = faceMaterial.clone()
-    rimMaterial.roughness = faceMaterial.roughness + 0.035
-    rimMaterial.color = faceMaterial.color.clone().offsetHSL(0, -0.015, -0.06)
-    rimMaterial.envMapIntensity = faceMaterial.envMapIntensity * 1.05
-
-    materialSet.add(faceMaterial)
-    materialSet.add(rimMaterial)
-
-    const mesh = new THREE.Mesh(geometry, [faceMaterial, faceMaterial, rimMaterial])
-    mesh.position.set(pos.x, pos.y, pos.z)
-
-    const baseRotationX = Math.PI / 2 - 0.12 + (Math.random() - 0.5) * 0.16
-    const baseRotationY = (Math.random() - 0.5) * 0.18
-    const spinOffset = Math.random() * Math.PI * 2
-    const spinSpeed = 0.06 + Math.random() * 0.025
-
-    mesh.rotation.set(baseRotationX, baseRotationY, spinOffset)
-
-    coins.push({
-      mesh,
-      baseX: mesh.position.x,
-      baseY: mesh.position.y,
-      baseZ: mesh.position.z,
-      phase: Math.random() * Math.PI * 2,
-      sway: 0.3 + Math.random() * 0.18,
-      baseRotationX,
-      baseRotationY,
-      spinOffset,
-      spinSpeed,
-    })
-  })
-
-  return { coins, materials: Array.from(materialSet) }
-}
-
 function createDustParticles() {
   const particles = 800
   const geometry = new THREE.BufferGeometry()
@@ -360,12 +314,106 @@ function createLighting() {
   scene.add(fillLight)
 }
 
+function rebuildCoins() {
+  coins.forEach((coin) => {
+    coinGroup.remove(coin.mesh)
+    coin.mesh.geometry.dispose()
+    if (Array.isArray(coin.mesh.material)) {
+      coin.mesh.material.forEach((material) => material.dispose())
+    } else if (coin.mesh.material) {
+      coin.mesh.material.dispose()
+    }
+  })
+  coins = []
+  coinMaterials.clear()
+
+  for (let i = 0; i < coinSettings.amount; i += 1) {
+    const radius = baseCoinDimensions.radius * coinSettings.scale
+    const depth = baseCoinDimensions.depth * coinSettings.scale
+    const segments = 96
+
+    const geometry = new THREE.CylinderGeometry(radius, radius, depth, segments, 1, false)
+
+    const faceColor = new THREE.Color('#fff6c5')
+    faceColor.offsetHSL(0, (Math.random() - 0.5) * 0.04, (Math.random() - 0.5) * 0.08)
+
+    const baseRoughness = 0.1 + Math.random() * 0.04
+    const faceMaterial = new THREE.MeshPhysicalMaterial({
+      color: faceColor,
+      metalness: 1,
+      roughness: baseRoughness,
+      clearcoat: 0.82,
+      clearcoatRoughness: 0.03,
+      emissive: faceColor.clone().multiplyScalar(0.16),
+      sheen: 0.35,
+      sheenColor: faceColor.clone().multiplyScalar(0.7),
+      envMapIntensity: 1.85,
+    })
+
+    const rimMaterial = faceMaterial.clone()
+    rimMaterial.roughness = baseRoughness + 0.035
+    rimMaterial.color = faceMaterial.color.clone().offsetHSL(0, -0.015, -0.06)
+    rimMaterial.envMapIntensity = faceMaterial.envMapIntensity * 1.05
+
+    coinMaterials.add(faceMaterial)
+    coinMaterials.add(rimMaterial)
+
+    const mesh = new THREE.Mesh(geometry, [faceMaterial, faceMaterial, rimMaterial])
+    mesh.position.set(
+      (Math.random() - 0.5) * coinSettings.scatter * 2,
+      (Math.random() - 0.5) * coinSettings.scatter * 1.4,
+      (Math.random() - 0.5) * coinSettings.scatter * 2
+    )
+
+    const baseRotationX = Math.PI / 2 - 0.12 + (Math.random() - 0.5) * 0.16
+    const baseRotationY = (Math.random() - 0.5) * 0.18
+    const spinOffset = Math.random() * Math.PI * 2
+    const spinSpeed = (0.06 + Math.random() * 0.025) * coinSettings.rotationSpeed
+
+    mesh.rotation.set(baseRotationX, baseRotationY, spinOffset)
+
+    coinGroup.add(mesh)
+
+    coins.push({
+      mesh,
+      baseX: mesh.position.x,
+      baseY: mesh.position.y,
+      baseZ: mesh.position.z,
+      phase: Math.random() * Math.PI * 2,
+      sway: 0.3 + Math.random() * 0.18,
+      baseRotationX,
+      baseRotationY,
+      spinOffset,
+      spinSpeed,
+    })
+  }
+
+  if (uiControls && typeof uiControls.updateEnvironment === 'function') {
+    uiControls.updateEnvironment()
+  }
+}
+
+function applyFog() {
+  const color = new THREE.Color(fogSettings.color)
+  const distance = Math.max(fogSettings.distance, 6)
+  const near = Math.max(0.1, distance * (1 - fogSettings.strength * 0.85))
+  const far = Math.max(distance, near + 5)
+
+  scene.fog.color.copy(color)
+  scene.fog.near = near
+  scene.fog.far = far
+}
+
 function bindUI({
   bloomPass,
   chromaticAberrationPass,
   bokehPass,
   gradientMaterial,
   coinMaterials,
+  fogSettings,
+  coinSettings,
+  rebuildCoins,
+  applyFog,
   composer,
 }) {
   const elements = {
@@ -382,8 +430,24 @@ function bindUI({
     gradientInner: document.getElementById('gradient-inner'),
     gradientOuter: document.getElementById('gradient-outer'),
     envIntensity: document.getElementById('env-intensity'),
+    fogStrength: document.getElementById('fog-strength'),
+    fogDistance: document.getElementById('fog-distance'),
+    fogColor: document.getElementById('fog-color'),
+    coinAmount: document.getElementById('coin-amount'),
+    coinScatter: document.getElementById('coin-scatter'),
+    coinRotation: document.getElementById('coin-rotation'),
+    coinScale: document.getElementById('coin-scale'),
     copyButton: document.getElementById('copy-settings'),
   }
+
+  elements.fogStrength.value = fogSettings.strength
+  elements.fogDistance.value = fogSettings.distance
+  elements.fogColor.value = fogSettings.color
+
+  elements.coinAmount.value = coinSettings.amount
+  elements.coinScatter.value = coinSettings.scatter
+  elements.coinRotation.value = coinSettings.rotationSpeed
+  elements.coinScale.value = coinSettings.scale
 
   function updateBloom() {
     bloomPass.enabled = elements.bloomEnabled.checked
@@ -408,6 +472,22 @@ function bindUI({
   function updateGradient() {
     gradientMaterial.uniforms.uColorInner.value.set(elements.gradientInner.value)
     gradientMaterial.uniforms.uColorOuter.value.set(elements.gradientOuter.value)
+  }
+
+  function updateFog() {
+    fogSettings.strength = parseFloat(elements.fogStrength.value)
+    fogSettings.distance = parseFloat(elements.fogDistance.value)
+    fogSettings.color = elements.fogColor.value
+    applyFog()
+  }
+
+  function updateCoins() {
+    coinSettings.amount = Math.max(3, Math.min(40, Math.round(elements.coinAmount.value)))
+    elements.coinAmount.value = coinSettings.amount
+    coinSettings.scatter = parseFloat(elements.coinScatter.value)
+    coinSettings.rotationSpeed = parseFloat(elements.coinRotation.value)
+    coinSettings.scale = parseFloat(elements.coinScale.value)
+    rebuildCoins()
   }
 
   function updateEnvironment() {
@@ -439,6 +519,17 @@ function bindUI({
       gradient: {
         inner: elements.gradientInner.value,
         outer: elements.gradientOuter.value,
+      },
+      fog: {
+        strength: parseFloat(elements.fogStrength.value),
+        distance: parseFloat(elements.fogDistance.value),
+        color: elements.fogColor.value,
+      },
+      coins: {
+        amount: coinSettings.amount,
+        scatter: coinSettings.scatter,
+        rotationSpeed: coinSettings.rotationSpeed,
+        scale: coinSettings.scale,
       },
       environment: {
         reflection: parseFloat(elements.envIntensity.value),
@@ -475,6 +566,16 @@ function bindUI({
   elements.gradientInner.addEventListener('input', updateGradient)
   elements.gradientOuter.addEventListener('input', updateGradient)
   elements.envIntensity.addEventListener('input', updateEnvironment)
+  elements.fogStrength.addEventListener('input', updateFog)
+  elements.fogDistance.addEventListener('input', updateFog)
+  elements.fogColor.addEventListener('input', updateFog)
+  elements.coinAmount.addEventListener('change', updateCoins)
+  elements.coinAmount.addEventListener('input', (event) => {
+    event.target.setAttribute('value', event.target.value)
+  })
+  elements.coinScatter.addEventListener('input', updateCoins)
+  elements.coinRotation.addEventListener('input', updateCoins)
+  elements.coinScale.addEventListener('input', updateCoins)
 
   elements.copyButton.addEventListener('click', copySettings)
 
@@ -483,8 +584,17 @@ function bindUI({
   updateDOF()
   updateGradient()
   updateEnvironment()
+  updateFog()
 
-  return { updateBloom, updateChromaticAberration, updateDOF, updateGradient, updateEnvironment }
+  return {
+    updateBloom,
+    updateChromaticAberration,
+    updateDOF,
+    updateGradient,
+    updateEnvironment,
+    updateFog,
+    updateCoins,
+  }
 }
 
 function playIntroAnimation() {

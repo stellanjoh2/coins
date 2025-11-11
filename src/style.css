@@ -62,7 +62,7 @@ body {
   line-height: 0.95;
   font-weight: 700;
   letter-spacing: -0.04em;
-  margin: 0 0 1.75rem;
+  margin: 0 0 3.5rem;
   opacity: 0;
   transform: translateY(40px);
 }
@@ -86,7 +86,7 @@ body {
   pointer-events: auto;
   cursor: pointer;
   transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease;
-  margin: 0 auto;
+  margin: 3.5rem auto 0;
 }
 
 .hero-cta:hover {
