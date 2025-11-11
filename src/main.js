@@ -1023,37 +1023,42 @@ function startHeadlineCycle() {
     return dynamicEl.querySelectorAll('.hero-letter')
   }
 
-  buildLetters(dynamicHeadlineWords[index], true)
+  let activeLetters = buildLetters(dynamicHeadlineWords[index], true)
 
   const cycle = () => {
-    const outLetters = dynamicEl.querySelectorAll('.hero-letter')
+    const nextIndex = (index + 1) % dynamicHeadlineWords.length
+    const nextWord = dynamicHeadlineWords[nextIndex]
 
-    gsap.to(outLetters, {
-      yPercent: -110,
-      duration: 0.35,
-      ease: 'power3.in',
-      stagger: 0.02,
+    gsap.timeline({
+      defaults: { ease: 'power3.inOut' },
       onComplete: () => {
-        index = (index + 1) % dynamicHeadlineWords.length
-        const inLetters = buildLetters(dynamicHeadlineWords[index])
-        gsap.fromTo(
-          inLetters,
-          { yPercent: 110 },
-          {
-            yPercent: 0,
-            duration: 0.65,
-            ease: 'expo.out',
-            stagger: 0.025,
-            onComplete: () => {
-              gsap.delayedCall(1.4, cycle)
-            },
-          }
-        )
+        index = nextIndex
+        activeLetters = buildLetters(dynamicHeadlineWords[index], true)
+        gsap.delayedCall(2.1, cycle)
       },
     })
+      .to(activeLetters, {
+        yPercent: -110,
+        duration: 0.45,
+        ease: 'power3.in',
+        stagger: 0.02,
+        onComplete: () => {
+          activeLetters = buildLetters(nextWord)
+          gsap.fromTo(
+            activeLetters,
+            { yPercent: 110 },
+            {
+              yPercent: 0,
+              duration: 0.75,
+              ease: 'expo.out',
+              stagger: 0.025,
+            }
+          )
+        },
+      })
   }
 
-  gsap.delayedCall(1.4, cycle)
+  gsap.delayedCall(2.1, cycle)
 }
 
 function onResize() {
