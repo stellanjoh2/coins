@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <title>Coldcoins Hero</title>
+  </head>
+  <body>
+    <div id="app">
+      <canvas id="scene"></canvas>
+
+      <div class="hero-overlay">
+        <div class="hero-text">
+          <h1 class="hero-title">Coldcoins in Motion</h1>
+          <p class="hero-subtitle">
+            Experience the chill of digital bullion drifting through the void.
+          </p>
+          <div class="hero-cta">Mint yours today</div>
+        </div>
+      </div>
+
+      <div class="ui-panel hidden" id="ui-panel">
+        <header>
+          <h2>Post FX</h2>
+          <p>Press P to toggle</p>
+        </header>
+        <section>
+          <h3>Bloom</h3>
+          <label>
+            <input type="checkbox" id="bloom-enabled" checked />
+            Enabled
+          </label>
+          <label>
+            Strength
+            <input type="range" id="bloom-strength" min="0" max="5" step="0.01" value="0.58" />
+          </label>
+          <label>
+            Radius
+            <input type="range" id="bloom-radius" min="0" max="2" step="0.01" value="1.33" />
+          </label>
+          <label>
+            Threshold
+            <input type="range" id="bloom-threshold" min="0" max="1" step="0.01" value="0.44" />
+          </label>
+        </section>
+        <section>
+          <h3>Chromatic Aberration</h3>
+          <label>
+            <input type="checkbox" id="ca-enabled" checked />
+            Enabled
+          </label>
+          <label>
+            Offset
+            <input type="range" id="ca-offset" min="0" max="0.01" step="0.0001" value="0.0013" />
+          </label>
+        </section>
+        <section>
+          <h3>Depth of Field</h3>
+          <label>
+            <input type="checkbox" id="dof-enabled" checked />
+            Enabled
+          </label>
+          <label>
+            Focus
+            <input type="range" id="dof-focus" min="0.1" max="20" step="0.1" value="8" />
+          </label>
+          <label>
+            Aperture
+            <input type="range" id="dof-aperture" min="0.00005" max="0.002" step="0.00005" value="0.00035" />
+          </label>
+          <label>
+            Max Blur
+            <input type="range" id="dof-maxblur" min="0" max="0.02" step="0.0005" value="0.008" />
+          </label>
+        </section>
+        <section>
+          <h3>Gradient</h3>
+          <label>
+            Inner Color
+            <input type="color" id="gradient-inner" value="#ad5cff" />
+          </label>
+          <label>
+            Outer Color
+            <input type="color" id="gradient-outer" value="#150080" />
+          </label>
+        </section>
+        <section>
+          <h3>Environment</h3>
+          <label>
+            Reflections
+            <input type="range" id="env-intensity" min="0" max="3" step="0.01" value="1.85" />
+          </label>
+        </section>
+        <button id="copy-settings">Copy Settings</button>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
