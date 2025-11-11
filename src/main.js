@@ -116,10 +116,24 @@ const cameraShake = {
   offset: new THREE.Vector3(),
 }
 
-const pointLightSettings = {
-  intensity: 2.1,
-  distance: 14,
-  color: '#8d4bff',
+const lightSettings = {
+  hemisphere: {
+    skyColor: '#9abfff',
+    groundColor: '#0a0f1a',
+    intensity: 0.7,
+  },
+  directional: {
+    color: '#ffffff',
+    intensity: 1.2,
+  },
+  rim: {
+    color: '#ffcc88',
+    intensity: 2.6,
+  },
+  fill: {
+    color: '#66aaff',
+    intensity: 1.4,
+  },
 }
 
 const baseCameraPosition = new THREE.Vector3().copy(camera.position)
@@ -135,7 +149,10 @@ let uiControls = null
 let coinTemplate = null
 let coinTemplateScale = 1
 const coinTemplateCenter = new THREE.Vector3()
-let heroPointLight = null
+let hemiLight = null
+let keyLight = null
+let rimLight = null
+let fillLight = null
 
 gltfLoader.load(
   coinModelUrl,
@@ -246,7 +263,7 @@ uiControls = bindUI({
   fogSettings,
   coinSettings,
   cameraShake,
-  pointLightSettings,
+  lightSettings,
   rebuildCoins,
   applyFog,
   composer,
@@ -316,7 +333,7 @@ function animate() {
 animate()
 
 function createGradientBackground() {
-  const geometry = new THREE.PlaneGeometry(40, 40)
+  const geometry = new THREE.PlaneGeometry(90, 90)
   const shaderMaterial = new THREE.ShaderMaterial({
     uniforms: {
       uColorInner: { value: new THREE.Color('#ad5cff') },
@@ -390,30 +407,39 @@ function createDustParticles() {
 }
 
 function createLighting() {
-  const hemiLight = new THREE.HemisphereLight(0x9abfff, 0x0a0f1a, 0.7)
+  hemiLight = new THREE.HemisphereLight(
+    new THREE.Color(lightSettings.hemisphere.skyColor),
+    new THREE.Color(lightSettings.hemisphere.groundColor),
+    lightSettings.hemisphere.intensity
+  )
   scene.add(hemiLight)
 
-  const keyLight = new THREE.DirectionalLight(0xffffff, 1.2)
+  keyLight = new THREE.DirectionalLight(
+    new THREE.Color(lightSettings.directional.color),
+    lightSettings.directional.intensity
+  )
   keyLight.position.set(5, 8, 5)
   keyLight.castShadow = false
   scene.add(keyLight)
 
-  const rimLight = new THREE.SpotLight(0xffcc88, 2.6, 40, Math.PI / 5, 0.35, 1.8)
+  rimLight = new THREE.SpotLight(
+    new THREE.Color(lightSettings.rim.color),
+    lightSettings.rim.intensity,
+    40,
+    Math.PI / 5,
+    0.35,
+    1.8
+  )
   rimLight.position.set(-6, 6, -2)
   scene.add(rimLight)
 
-  const fillLight = new THREE.PointLight(0x66aaff, 1.4, 18)
+  fillLight = new THREE.PointLight(
+    new THREE.Color(lightSettings.fill.color),
+    lightSettings.fill.intensity,
+    18
+  )
   fillLight.position.set(0, -1.5, 3.5)
   scene.add(fillLight)
-
-  heroPointLight = new THREE.PointLight(
-    new THREE.Color(pointLightSettings.color),
-    pointLightSettings.intensity,
-    pointLightSettings.distance
-  )
-  heroPointLight.position.set(0, 0.9, 0.4)
-  heroPointLight.castShadow = false
-  scene.add(heroPointLight)
 }
 
 function rebuildCoins() {
@@ -598,7 +624,7 @@ function bindUI({
   fogSettings,
   coinSettings,
   cameraShake,
-  pointLightSettings,
+  lightSettings,
   rebuildCoins,
   applyFog,
   composer,
@@ -627,9 +653,15 @@ function bindUI({
     cameraShakeAmp: document.getElementById('camera-shake-amp'),
     cameraShakeFreq: document.getElementById('camera-shake-freq'),
     cameraLookHeight: document.getElementById('camera-look-height'),
-    lightStrength: document.getElementById('light-strength'),
-    lightRadius: document.getElementById('light-radius'),
-    lightColor: document.getElementById('light-color'),
+    hemiSky: document.getElementById('hemi-sky'),
+    hemiGround: document.getElementById('hemi-ground'),
+    hemiStrength: document.getElementById('hemi-strength'),
+    keyColor: document.getElementById('key-color'),
+    keyStrength: document.getElementById('key-strength'),
+    rimColor: document.getElementById('rim-color'),
+    rimStrength: document.getElementById('rim-strength'),
+    fillColor: document.getElementById('fill-color'),
+    fillStrength: document.getElementById('fill-strength'),
     copyButton: document.getElementById('copy-settings'),
   }
 
@@ -650,14 +682,32 @@ function bindUI({
   if (elements.cameraLookHeight) {
     elements.cameraLookHeight.value = cameraShake.lookHeight
   }
-  if (elements.lightStrength) {
-    elements.lightStrength.value = pointLightSettings.intensity
+  if (elements.hemiSky) {
+    elements.hemiSky.value = lightSettings.hemisphere.skyColor
   }
-  if (elements.lightRadius) {
-    elements.lightRadius.value = pointLightSettings.distance
+  if (elements.hemiGround) {
+    elements.hemiGround.value = lightSettings.hemisphere.groundColor
   }
-  if (elements.lightColor) {
-    elements.lightColor.value = pointLightSettings.color
+  if (elements.hemiStrength) {
+    elements.hemiStrength.value = lightSettings.hemisphere.intensity
+  }
+  if (elements.keyColor) {
+    elements.keyColor.value = lightSettings.directional.color
+  }
+  if (elements.keyStrength) {
+    elements.keyStrength.value = lightSettings.directional.intensity
+  }
+  if (elements.rimColor) {
+    elements.rimColor.value = lightSettings.rim.color
+  }
+  if (elements.rimStrength) {
+    elements.rimStrength.value = lightSettings.rim.intensity
+  }
+  if (elements.fillColor) {
+    elements.fillColor.value = lightSettings.fill.color
+  }
+  if (elements.fillStrength) {
+    elements.fillStrength.value = lightSettings.fill.intensity
   }
 
   function updateBloom() {
@@ -721,19 +771,55 @@ function bindUI({
     }
   }
 
-  function updatePointLight() {
-    if (!heroPointLight) return
-    if (elements.lightStrength) {
-      pointLightSettings.intensity = parseFloat(elements.lightStrength.value)
-      heroPointLight.intensity = pointLightSettings.intensity
+  function updateHemisphereLight() {
+    if (!hemiLight) return
+    if (elements.hemiSky) {
+      lightSettings.hemisphere.skyColor = elements.hemiSky.value
+      hemiLight.color.set(lightSettings.hemisphere.skyColor)
     }
-    if (elements.lightRadius) {
-      pointLightSettings.distance = parseFloat(elements.lightRadius.value)
-      heroPointLight.distance = pointLightSettings.distance
+    if (elements.hemiGround) {
+      lightSettings.hemisphere.groundColor = elements.hemiGround.value
+      hemiLight.groundColor.set(lightSettings.hemisphere.groundColor)
     }
-    if (elements.lightColor) {
-      pointLightSettings.color = elements.lightColor.value
-      heroPointLight.color.set(pointLightSettings.color)
+    if (elements.hemiStrength) {
+      lightSettings.hemisphere.intensity = parseFloat(elements.hemiStrength.value)
+      hemiLight.intensity = lightSettings.hemisphere.intensity
+    }
+  }
+
+  function updateKeyLight() {
+    if (!keyLight) return
+    if (elements.keyColor) {
+      lightSettings.directional.color = elements.keyColor.value
+      keyLight.color.set(lightSettings.directional.color)
+    }
+    if (elements.keyStrength) {
+      lightSettings.directional.intensity = parseFloat(elements.keyStrength.value)
+      keyLight.intensity = lightSettings.directional.intensity
+    }
+  }
+
+  function updateRimLight() {
+    if (!rimLight) return
+    if (elements.rimColor) {
+      lightSettings.rim.color = elements.rimColor.value
+      rimLight.color.set(lightSettings.rim.color)
+    }
+    if (elements.rimStrength) {
+      lightSettings.rim.intensity = parseFloat(elements.rimStrength.value)
+      rimLight.intensity = lightSettings.rim.intensity
+    }
+  }
+
+  function updateFillLight() {
+    if (!fillLight) return
+    if (elements.fillColor) {
+      lightSettings.fill.color = elements.fillColor.value
+      fillLight.color.set(lightSettings.fill.color)
+    }
+    if (elements.fillStrength) {
+      lightSettings.fill.intensity = parseFloat(elements.fillStrength.value)
+      fillLight.intensity = lightSettings.fill.intensity
     }
   }
 
@@ -778,14 +864,37 @@ function bindUI({
               lookHeight: parseFloat(elements.cameraLookHeight.value),
             }
           : undefined,
-      pointLight:
-        elements.lightStrength && elements.lightRadius && elements.lightColor
-          ? {
-              intensity: parseFloat(elements.lightStrength.value),
-              distance: parseFloat(elements.lightRadius.value),
-              color: elements.lightColor.value,
-            }
-          : undefined,
+      lights: {
+        hemisphere:
+          elements.hemiSky && elements.hemiGround && elements.hemiStrength
+            ? {
+                skyColor: elements.hemiSky.value,
+                groundColor: elements.hemiGround.value,
+                intensity: parseFloat(elements.hemiStrength.value),
+              }
+            : undefined,
+        directional:
+          elements.keyColor && elements.keyStrength
+            ? {
+                color: elements.keyColor.value,
+                intensity: parseFloat(elements.keyStrength.value),
+              }
+            : undefined,
+        rim:
+          elements.rimColor && elements.rimStrength
+            ? {
+                color: elements.rimColor.value,
+                intensity: parseFloat(elements.rimStrength.value),
+              }
+            : undefined,
+        fill:
+          elements.fillColor && elements.fillStrength
+            ? {
+                color: elements.fillColor.value,
+                intensity: parseFloat(elements.fillStrength.value),
+              }
+            : undefined,
+      },
       environment: {
         reflection: parseFloat(elements.envIntensity.value),
       },
@@ -834,9 +943,15 @@ function bindUI({
   elements.cameraShakeAmp?.addEventListener('input', updateCamera)
   elements.cameraShakeFreq?.addEventListener('input', updateCamera)
   elements.cameraLookHeight?.addEventListener('input', updateCamera)
-  elements.lightStrength?.addEventListener('input', updatePointLight)
-  elements.lightRadius?.addEventListener('input', updatePointLight)
-  elements.lightColor?.addEventListener('input', updatePointLight)
+  elements.hemiSky?.addEventListener('input', updateHemisphereLight)
+  elements.hemiGround?.addEventListener('input', updateHemisphereLight)
+  elements.hemiStrength?.addEventListener('input', updateHemisphereLight)
+  elements.keyColor?.addEventListener('input', updateKeyLight)
+  elements.keyStrength?.addEventListener('input', updateKeyLight)
+  elements.rimColor?.addEventListener('input', updateRimLight)
+  elements.rimStrength?.addEventListener('input', updateRimLight)
+  elements.fillColor?.addEventListener('input', updateFillLight)
+  elements.fillStrength?.addEventListener('input', updateFillLight)
 
   elements.copyButton.addEventListener('click', copySettings)
 
@@ -847,7 +962,10 @@ function bindUI({
   updateEnvironment()
   updateFog()
   updateCamera()
-  updatePointLight()
+  updateHemisphereLight()
+  updateKeyLight()
+  updateRimLight()
+  updateFillLight()
 
   return {
     updateBloom,
@@ -858,7 +976,10 @@ function bindUI({
     updateFog,
     updateCoins,
     updateCamera,
-    updatePointLight,
+    updateHemisphereLight,
+    updateKeyLight,
+    updateRimLight,
+    updateFillLight,
   }
 }
 
