@@ -61,7 +61,7 @@ const fogSettings = {
 
 const coinSettings = {
   amount: 24,
-  scatter: 10.3,
+  scatter: 9.4,
   rotationSpeed: 1.59,
   scale: 1.23,
 }
@@ -110,17 +110,17 @@ scene.add(camera)
 const clock = new THREE.Clock()
 let elapsedTime = 0
 const cameraShake = {
-  amplitude: 0.2,
-  frequency: 0.85,
-  lookHeight: 0.82,
+  amplitude: 0,
+  frequency: 0,
+  lookHeight: 0.8,
   offset: new THREE.Vector3(),
 }
 
 const lightSettings = {
   hemisphere: {
     skyColor: '#9abfff',
-    groundColor: '#0a0f1a',
-    intensity: 0.7,
+    groundColor: '#02060d',
+    intensity: 1.27,
   },
   directional: {
     color: '#ffffff',
@@ -128,7 +128,7 @@ const lightSettings = {
   },
   rim: {
     color: '#ffcc88',
-    intensity: 2.6,
+    intensity: 3.38,
   },
   fill: {
     color: '#66aaff',
@@ -222,8 +222,8 @@ composer.addPass(renderPass)
 
 const bloomPass = new UnrealBloomPass(
   new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.58,
-  1.33,
+  0.17,
+  0.61,
   0.44
 )
 composer.addPass(bloomPass)
@@ -349,8 +349,8 @@ function createGradientBackground() {
   const geometry = new THREE.PlaneGeometry(90, 90)
   const shaderMaterial = new THREE.ShaderMaterial({
     uniforms: {
-      uColorInner: { value: new THREE.Color('#ad5cff') },
-      uColorOuter: { value: new THREE.Color('#150080') },
+      uColorInner: { value: new THREE.Color('#8a3dd6') },
+      uColorOuter: { value: new THREE.Color('#01000f') },
       uAspect: { value: window.innerWidth / window.innerHeight },
     },
     vertexShader: `
