@@ -7,6 +7,8 @@ import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js'
 import { gsap } from 'gsap'
 import hdriUrl from '../media/hdri_sky_860.jpg?url'
+import coinModelUrl from '../3D/coin.glb?url'
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 const canvas = document.getElementById('scene')
 const uiPanel = document.getElementById('ui-panel')
@@ -75,6 +77,8 @@ scene.fog = new THREE.Fog(new THREE.Color(fogSettings.color), 2, fogSettings.dis
 const pmremGenerator = new THREE.PMREMGenerator(renderer)
 pmremGenerator.compileEquirectangularShader()
 
+const gltfLoader = new GLTFLoader()
+
 new THREE.TextureLoader().load(
   hdriUrl,
   (texture) => {
@@ -113,6 +117,40 @@ let coins = []
 const coinGroup = new THREE.Group()
 scene.add(coinGroup)
 let uiControls = null
+let coinTemplate = null
+let coinTemplateScale = 1
+const coinTemplateCenter = new THREE.Vector3()
+
+gltfLoader.load(
+  coinModelUrl,
+  (gltf) => {
+    coinTemplate = gltf.scene
+    coinTemplate.traverse((child) => {
+      if (child.isMesh) {
+        child.castShadow = false
+        child.receiveShadow = false
+        child.material.side = THREE.FrontSide
+      }
+    })
+
+    const bbox = new THREE.Box3().setFromObject(coinTemplate)
+    bbox.getCenter(coinTemplateCenter)
+    coinTemplate.position.sub(coinTemplateCenter)
+    coinTemplate.updateMatrixWorld(true)
+
+    const size = new THREE.Vector3()
+    bbox.getSize(size)
+    if (size.x > 0) {
+      coinTemplateScale = ((baseCoinDimensions.radius * 2) / size.x) * 1
+    }
+
+    rebuildCoins()
+  },
+  undefined,
+  (error) => {
+    console.error('Failed to load coin GLB', error)
+  }
+)
 
 const dust = createDustParticles()
 scene.add(dust)
@@ -334,49 +372,52 @@ function createLighting() {
 function rebuildCoins() {
   coins.forEach((coin) => {
     coinGroup.remove(coin.mesh)
-    coin.mesh.geometry.dispose()
-    if (Array.isArray(coin.mesh.material)) {
-      coin.mesh.material.forEach((material) => material.dispose())
-    } else if (coin.mesh.material) {
-      coin.mesh.material.dispose()
-    }
+    coin.mesh.traverse((child) => {
+      if (child.isMesh) {
+        if (Array.isArray(child.material)) {
+          child.material.forEach((material) => material.dispose())
+        } else if (child.material) {
+          child.material.dispose()
+        }
+      }
+    })
   })
   coins = []
   coinMaterials.clear()
 
+  if (!coinTemplate) {
+    return
+  }
+
   for (let i = 0; i < coinSettings.amount; i += 1) {
-    const radius = baseCoinDimensions.radius * coinSettings.scale
-    const depth = baseCoinDimensions.depth * coinSettings.scale
-    const segments = 96
-
-    const geometry = new THREE.CylinderGeometry(radius, radius, depth, segments, 1, false)
-
-    const faceColor = new THREE.Color('#fff6c5')
-    faceColor.offsetHSL(0, (Math.random() - 0.5) * 0.04, (Math.random() - 0.5) * 0.08)
-
-    const baseRoughness = 0.1 + Math.random() * 0.04
-    const faceMaterial = new THREE.MeshPhysicalMaterial({
-      color: faceColor,
-      metalness: 1,
-      roughness: baseRoughness,
-      clearcoat: 0.82,
-      clearcoatRoughness: 0.03,
-      emissive: faceColor.clone().multiplyScalar(0.16),
-      sheen: 0.35,
-      sheenColor: faceColor.clone().multiplyScalar(0.7),
-      envMapIntensity: 1.85,
+    const instance = coinTemplate.clone(true)
+    instance.traverse((child) => {
+      if (child.isMesh) {
+        const material = Array.isArray(child.material)
+          ? child.material.map((mat) => {
+              const cloned = mat.clone()
+              cloned.envMapIntensity = 1.85
+              cloned.metalness = Math.min(1, (cloned.metalness ?? 1) * 1.05)
+              cloned.roughness = Math.max(0.05, (cloned.roughness ?? 0.3) * 0.9)
+              cloned.needsUpdate = true
+              coinMaterials.add(cloned)
+              return cloned
+            })
+          : (() => {
+              const cloned = child.material.clone()
+              cloned.envMapIntensity = 1.85
+              cloned.metalness = Math.min(1, (cloned.metalness ?? 1) * 1.05)
+              cloned.roughness = Math.max(0.05, (cloned.roughness ?? 0.3) * 0.9)
+              cloned.needsUpdate = true
+              coinMaterials.add(cloned)
+              return cloned
+            })()
+        child.material = material
+      }
     })
 
-    const rimMaterial = faceMaterial.clone()
-    rimMaterial.roughness = baseRoughness + 0.035
-    rimMaterial.color = faceMaterial.color.clone().offsetHSL(0, -0.015, -0.06)
-    rimMaterial.envMapIntensity = faceMaterial.envMapIntensity * 1.05
-
-    coinMaterials.add(faceMaterial)
-    coinMaterials.add(rimMaterial)
-
-    const mesh = new THREE.Mesh(geometry, [faceMaterial, faceMaterial, rimMaterial])
-    mesh.position.set(
+    instance.scale.setScalar(coinTemplateScale * coinSettings.scale)
+    instance.position.set(
       (Math.random() - 0.5) * coinSettings.scatter * 2,
       (Math.random() - 0.5) * coinSettings.scatter * 1.4,
       (Math.random() - 0.5) * coinSettings.scatter * 2
@@ -387,15 +428,15 @@ function rebuildCoins() {
     const spinOffset = Math.random() * Math.PI * 2
     const spinSpeed = (0.06 + Math.random() * 0.025) * coinSettings.rotationSpeed
 
-    mesh.rotation.set(baseRotationX, baseRotationY, spinOffset)
+    instance.rotation.set(baseRotationX, baseRotationY, spinOffset)
 
-    coinGroup.add(mesh)
+    coinGroup.add(instance)
 
     coins.push({
-      mesh,
-      baseX: mesh.position.x,
-      baseY: mesh.position.y,
-      baseZ: mesh.position.z,
+      mesh: instance,
+      baseX: instance.position.x,
+      baseY: instance.position.y,
+      baseZ: instance.position.z,
       phase: Math.random() * Math.PI * 2,
       sway: 0.3 + Math.random() * 0.18,
       baseRotationX,
