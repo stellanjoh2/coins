@@ -96,6 +96,12 @@ camera.position.set(0, 1.8, 11.5)
 scene.add(camera)
 
 const clock = new THREE.Clock()
+const cameraShake = {
+  amplitude: 0.06,
+  frequency: 0.18,
+  offset: new THREE.Vector3(),
+}
+const baseCameraPosition = new THREE.Vector3().copy(camera.position)
 
 const { gradientMaterial, gradientMesh } = createGradientBackground()
 scene.add(gradientMesh)
@@ -214,6 +220,15 @@ function animate() {
   if (dust.position.y > 1.2) {
     dust.position.y = -1.2
   }
+
+  const shakePhase = elapsed * cameraShake.frequency
+  cameraShake.offset.set(
+    Math.sin(shakePhase * 1.3) * cameraShake.amplitude * 0.6,
+    Math.sin(shakePhase * 1.7 + 0.8) * cameraShake.amplitude * 0.4,
+    Math.cos(shakePhase * 1.1 + 1.4) * cameraShake.amplitude * 0.8
+  )
+  camera.position.copy(baseCameraPosition).add(cameraShake.offset)
+  camera.lookAt(0, 0.8, 0)
 
   gradientMaterial.uniforms.uAspect.value = window.innerWidth / window.innerHeight
 
