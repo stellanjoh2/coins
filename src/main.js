@@ -52,8 +52,8 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping
 renderer.toneMappingExposure = 1.05
 
 const fogSettings = {
-  strength: 0.32,
-  distance: 22,
+  strength: 0.07,
+  distance: 18,
   color: '#a880ff',
 }
 
