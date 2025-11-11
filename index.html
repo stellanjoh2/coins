@@ -11,8 +11,8 @@
     />
     <link rel="icon" type="image/svg+xml" href="./vite.svg" />
     <title>Coldcoins Hero</title>
-    <script type="module" crossorigin src="./assets/index-Dptzm5jx.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-hZy82NIu.css">
+    <script type="module" crossorigin src="./assets/index-D5_R4Quf.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-Drfuy-Bl.css">
   </head>
   <body>
     <div id="app">
@@ -20,8 +20,10 @@
 
       <div class="hero-overlay">
         <div class="hero-text">
-          <h1 class="hero-title">Coldcoins in Motion</h1>
-          <button class="hero-cta">Mint yours today</button>
+          <div class="hero-headline">
+            <span class="hero-line">This is</span>
+            <span class="hero-line">a headline.</span>
+          </div>
         </div>
       </div>
 
@@ -37,11 +39,11 @@
           </label>
           <label>
             Strength
-            <input type="range" id="bloom-strength" min="0" max="5" step="0.01" value="0.58" />
+            <input type="range" id="bloom-strength" min="0" max="5" step="0.01" value="0.17" />
           </label>
           <label>
             Radius
-            <input type="range" id="bloom-radius" min="0" max="2" step="0.01" value="1.33" />
+            <input type="range" id="bloom-radius" min="0" max="2" step="0.01" value="0.61" />
           </label>
           <label>
             Threshold
@@ -56,7 +58,7 @@
           </label>
           <label>
             Offset
-            <input type="range" id="ca-offset" min="0" max="0.01" step="0.0001" value="0.0013" />
+            <input type="range" id="ca-offset" min="0" max="0.01" step="0.0001" value="0.0001" />
           </label>
         </section>
         <section>
@@ -82,18 +84,18 @@
           <h3>Gradient</h3>
           <label>
             Inner Color
-            <input type="color" id="gradient-inner" value="#ad5cff" />
+            <input type="color" id="gradient-inner" value="#8a3dd6" />
           </label>
           <label>
             Outer Color
-            <input type="color" id="gradient-outer" value="#150080" />
+            <input type="color" id="gradient-outer" value="#01000f" />
           </label>
         </section>
         <section>
           <h3>Environment</h3>
           <label>
             Reflections
-            <input type="range" id="env-intensity" min="0" max="3" step="0.01" value="1.85" />
+            <input type="range" id="env-intensity" min="0" max="3" step="0.01" value="3" />
           </label>
         </section>
         <section>
@@ -119,7 +121,7 @@
           </label>
           <label>
             Scatter
-            <input type="range" id="coin-scatter" min="3" max="16" step="0.1" value="10.3" />
+            <input type="range" id="coin-scatter" min="3" max="16" step="0.1" value="9.4" />
           </label>
           <label>
             Rotation Speed
@@ -134,15 +136,63 @@
           <h3>Camera</h3>
           <label>
             Shake Amplitude
-            <input type="range" id="camera-shake-amp" min="0" max="0.2" step="0.001" value="0.2" />
+            <input type="range" id="camera-shake-amp" min="0" max="0.2" step="0.001" value="0" />
           </label>
           <label>
             Shake Frequency
-            <input type="range" id="camera-shake-freq" min="0" max="1" step="0.01" value="0.85" />
+            <input type="range" id="camera-shake-freq" min="0" max="1" step="0.01" value="0" />
           </label>
           <label>
             Drift Focus Height
-            <input type="range" id="camera-look-height" min="0" max="2" step="0.01" value="0.82" />
+            <input type="range" id="camera-look-height" min="0" max="2" step="0.01" value="0.8" />
+          </label>
+        </section>
+        <section>
+          <h3>Hemisphere Light</h3>
+          <label>
+            Sky Color
+            <input type="color" id="hemi-sky" value="#9abfff" />
+          </label>
+          <label>
+            Ground Color
+            <input type="color" id="hemi-ground" value="#02060d" />
+          </label>
+          <label>
+            Strength
+            <input type="range" id="hemi-strength" min="0" max="2" step="0.01" value="1.27" />
+          </label>
+        </section>
+        <section>
+          <h3>Key Light</h3>
+          <label>
+            Color
+            <input type="color" id="key-color" value="#ffffff" />
+          </label>
+          <label>
+            Strength
+            <input type="range" id="key-strength" min="0" max="5" step="0.01" value="1.2" />
+          </label>
+        </section>
+        <section>
+          <h3>Rim Light</h3>
+          <label>
+            Color
+            <input type="color" id="rim-color" value="#ffcc88" />
+          </label>
+          <label>
+            Strength
+            <input type="range" id="rim-strength" min="0" max="6" step="0.01" value="3.38" />
+          </label>
+        </section>
+        <section>
+          <h3>Fill Light</h3>
+          <label>
+            Color
+            <input type="color" id="fill-color" value="#66aaff" />
+          </label>
+          <label>
+            Strength
+            <input type="range" id="fill-strength" min="0" max="4" step="0.01" value="1.4" />
           </label>
         </section>
         <button id="copy-settings">Copy Settings</button>
