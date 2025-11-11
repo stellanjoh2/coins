@@ -54,16 +54,16 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping
 renderer.toneMappingExposure = 1.05
 
 const fogSettings = {
-  strength: 0.07,
-  distance: 18,
-  color: '#a880ff',
+  strength: 0.65,
+  distance: 32,
+  color: '#4c13c9',
 }
 
 const coinSettings = {
-  amount: 10,
-  scatter: 8.4,
-  rotationSpeed: 1,
-  scale: 1,
+  amount: 16,
+  scatter: 10.3,
+  rotationSpeed: 1.59,
+  scale: 1.23,
 }
 
 const baseCoinDimensions = {
@@ -72,8 +72,8 @@ const baseCoinDimensions = {
 }
 
 const coinFlowSettings = {
-  riseSpeedMin: 0.26,
-  riseSpeedMax: 0.48,
+  riseSpeedMin: 0.32,
+  riseSpeedMax: 0.58,
   fadeInHeight: 1.1,
   fadeOutBuffer: 1.4,
   despawnBuffer: 3.0,
@@ -110,9 +110,9 @@ scene.add(camera)
 const clock = new THREE.Clock()
 let elapsedTime = 0
 const cameraShake = {
-  amplitude: 0.06,
-  frequency: 0.18,
-  lookHeight: 0.8,
+  amplitude: 0.09,
+  frequency: 0.25,
+  lookHeight: 0.82,
   offset: new THREE.Vector3(),
 }
 
