@@ -86,7 +86,7 @@ body {
   pointer-events: auto;
   cursor: pointer;
   transition: transform 200ms ease, box-shadow 200ms ease, background 200ms ease;
-  margin: 3.5rem auto 0;
+  margin: 2.6rem auto 0;
 }
 
 .hero-cta:hover {

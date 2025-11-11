@@ -6,7 +6,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js'
 import { BokehPass } from 'three/examples/jsm/postprocessing/BokehPass.js'
 import { gsap } from 'gsap'
-import hdriUrl from '../media/hdri_sky_782.jpg?url'
+import hdriUrl from '../media/hdri_sky_860.jpg?url'
 
 const canvas = document.getElementById('scene')
 const uiPanel = document.getElementById('ui-panel')
@@ -52,9 +52,9 @@ renderer.toneMapping = THREE.ACESFilmicToneMapping
 renderer.toneMappingExposure = 1.05
 
 const fogSettings = {
-  strength: 0.39,
+  strength: 0.32,
   distance: 22,
-  color: '#6f2bff',
+  color: '#a880ff',
 }
 
 const coinSettings = {
