@@ -998,34 +998,37 @@ function bindUI({
 
 function playIntroAnimation() {
   const tl = gsap.timeline({ delay: 0.4, defaults: { ease: 'power3.out', duration: 1.2 } })
-  tl.to('.hero-title', { opacity: 1, y: 0, duration: 1.4 }, 0)
+  tl.to('.hero-headline', { opacity: 1, y: 0, duration: 1.4 }, 0)
     .add(() => startHeadlineCycle(), '-=0.1')
 }
 
 function startHeadlineCycle() {
-  const dynamicEl = document.querySelector('.hero-title-dynamic')
+  const dynamicEl = document.querySelector('.hero-word-dynamic')
   if (!dynamicEl || dynamicHeadlineWords.length === 0) return
 
   let index = 0
   dynamicEl.textContent = dynamicHeadlineWords[0]
+  gsap.set(dynamicEl, { opacity: 1 })
 
-  const loop = () => {
-    index = (index + 1) % dynamicHeadlineWords.length
-    const nextWord = dynamicHeadlineWords[index]
+  const cycle = () => {
+    const nextIndex = (index + 1) % dynamicHeadlineWords.length
+    const nextWord = dynamicHeadlineWords[nextIndex]
 
-    dynamicEl.textContent = nextWord
-
-    gsap.timeline()
-      .fromTo(
-        dynamicEl,
-        { opacity: 0 },
-        { opacity: 1, duration: 0.55, ease: 'power2.out' }
-      )
-      .to({}, { duration: 1.6, onComplete: loop })
+    gsap.timeline({
+      defaults: { ease: 'power2.inOut' },
+      onComplete: () => {
+        index = nextIndex
+        gsap.delayedCall(1.4, cycle)
+      },
+    })
+      .to(dynamicEl, { opacity: 0, duration: 0.35 })
+      .add(() => {
+        dynamicEl.textContent = nextWord
+      })
+      .to(dynamicEl, { opacity: 1, duration: 0.45 })
   }
 
-  gsap.set(dynamicEl, { opacity: 1 })
-  gsap.to({}, { duration: 1.6, onComplete: loop })
+  gsap.delayedCall(1.6, cycle)
 }
 
 function onResize() {
