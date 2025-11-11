@@ -1013,21 +1013,19 @@ function startHeadlineCycle() {
     index = (index + 1) % dynamicHeadlineWords.length
     const nextWord = dynamicHeadlineWords[index]
 
+    dynamicEl.textContent = nextWord
+
     gsap.timeline()
-      .to(dynamicEl, { opacity: 0, y: -40, duration: 0.4, ease: 'power2.in' })
-      .add(() => {
-        dynamicEl.textContent = nextWord
-      })
       .fromTo(
         dynamicEl,
-        { opacity: 0, y: 40 },
-        { opacity: 1, y: 0, duration: 0.55, ease: 'power3.out' }
+        { opacity: 0, x: 50 },
+        { opacity: 1, x: 0, duration: 0.6, ease: 'power3.out' }
       )
-      .to({}, { duration: 0.9, onComplete: loop })
+      .to({}, { duration: 1.6, onComplete: loop })
   }
 
-  gsap.to(dynamicEl, { opacity: 1, y: 0, duration: 0.6, ease: 'power3.out' })
-  gsap.to({}, { duration: 1.5, onComplete: loop })
+  gsap.set(dynamicEl, { opacity: 1, x: 0 })
+  gsap.to({}, { duration: 1.6, onComplete: loop })
 }
 
 function onResize() {
