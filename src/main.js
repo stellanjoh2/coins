@@ -71,6 +71,14 @@ const baseCoinDimensions = {
   depth: 0.24,
 }
 
+const coinFlowSettings = {
+  riseSpeedMin: 0.26,
+  riseSpeedMax: 0.48,
+  fadeInHeight: 1.1,
+  fadeOutBuffer: 1.4,
+  despawnBuffer: 3.0,
+}
+
 const scene = new THREE.Scene()
 scene.fog = new THREE.Fog(new THREE.Color(fogSettings.color), 2, fogSettings.distance)
 
@@ -100,6 +108,7 @@ camera.position.set(0, 1.8, 11.5)
 scene.add(camera)
 
 const clock = new THREE.Clock()
+let elapsedTime = 0
 const cameraShake = {
   amplitude: 0.06,
   frequency: 0.18,
@@ -243,20 +252,37 @@ window.addEventListener('keydown', onKeyDown)
 function animate() {
   requestAnimationFrame(animate)
 
-  const elapsed = clock.getElapsedTime()
+  const delta = clock.getDelta()
+  elapsedTime += delta
 
   coins.forEach((coin) => {
+    coin.y += coin.riseSpeed * delta
+
+    let alpha = 1
+    if (coin.y < coin.fadeInEnd) {
+      alpha = (coin.y - coin.spawnY) / (coin.fadeInEnd - coin.spawnY)
+    } else if (coin.y > coin.fadeOutStart) {
+      alpha = (coin.despawnY - coin.y) / (coin.despawnY - coin.fadeOutStart)
+    }
+    updateCoinOpacity(coin, alpha)
+
+    if (coin.y > coin.despawnY) {
+      alignCoinState(coin)
+      return
+    }
+
+    const wobbleY = Math.sin(elapsedTime * 0.9 + coin.phase) * coin.sway
+    const posX =
+      coin.baseX + Math.sin(elapsedTime * 0.55 + coin.phase) * (0.35 + coin.sway * 0.18)
+    const posZ =
+      coin.baseZ + Math.sin(elapsedTime * 0.22 + coin.phase * 0.7) * (0.5 + coin.sway * 0.22)
+
+    coin.mesh.position.set(posX, coin.y + wobbleY, posZ)
     coin.mesh.rotation.x =
-      coin.baseRotationX + Math.sin(elapsed * 0.45 + coin.phase) * 0.3
+      coin.baseRotationX + Math.sin(elapsedTime * 0.45 + coin.phase) * 0.3
     coin.mesh.rotation.y =
-      coin.baseRotationY + Math.sin(elapsed * 0.32 + coin.phase * 0.6) * 0.22
-    coin.mesh.rotation.z = coin.spinOffset + elapsed * coin.spinSpeed * 1.6
-    coin.mesh.position.y =
-      coin.baseY + Math.sin(elapsed * 0.85 + coin.phase) * coin.sway + elapsed * 0.02
-    coin.mesh.position.x =
-      coin.baseX + Math.sin(elapsed * 0.55 + coin.phase) * (0.35 + coin.sway * 0.15)
-    coin.mesh.position.z =
-      coin.baseZ + Math.sin(elapsed * 0.18 + coin.phase * 0.7) * (0.45 + coin.sway * 0.2)
+      coin.baseRotationY + Math.sin(elapsedTime * 0.32 + coin.phase * 0.6) * 0.22
+    coin.mesh.rotation.z = coin.spinOffset + elapsedTime * coin.spinSpeed * 1.6
   })
 
   dust.rotation.y += 0.0004
@@ -265,7 +291,7 @@ function animate() {
     dust.position.y = -1.2
   }
 
-  const shakePhase = elapsed * cameraShake.frequency
+  const shakePhase = elapsedTime * cameraShake.frequency
   cameraShake.offset.set(
     Math.sin(shakePhase * 1.3) * cameraShake.amplitude * 0.6,
     Math.sin(shakePhase * 1.7 + 0.8) * cameraShake.amplitude * 0.4,
@@ -395,64 +421,110 @@ function rebuildCoins() {
 
   for (let i = 0; i < coinSettings.amount; i += 1) {
     const instance = coinTemplate.clone(true)
+    const trackedMaterials = []
+
     instance.traverse((child) => {
       if (child.isMesh) {
-        const material = Array.isArray(child.material)
-          ? child.material.map((mat) => {
-              const cloned = mat.clone()
-              cloned.envMapIntensity = 1.85
-              cloned.metalness = Math.min(1, (cloned.metalness ?? 1) * 1.05)
-              cloned.roughness = Math.max(0.05, (cloned.roughness ?? 0.3) * 0.9)
-              cloned.needsUpdate = true
-              coinMaterials.add(cloned)
-              return cloned
-            })
-          : (() => {
-              const cloned = child.material.clone()
-              cloned.envMapIntensity = 1.85
-              cloned.metalness = Math.min(1, (cloned.metalness ?? 1) * 1.05)
-              cloned.roughness = Math.max(0.05, (cloned.roughness ?? 0.3) * 0.9)
-              cloned.needsUpdate = true
-              coinMaterials.add(cloned)
-              return cloned
-            })()
-        child.material = material
+        if (Array.isArray(child.material)) {
+          child.material = child.material.map((mat) => {
+            const cloned = mat.clone()
+            cloned.transparent = true
+            cloned.opacity = 0
+            cloned.envMapIntensity = 1.85
+            cloned.metalness = Math.min(1, (cloned.metalness ?? 1) * 1.05)
+            cloned.roughness = Math.max(0.05, (cloned.roughness ?? 0.3) * 0.9)
+            cloned.needsUpdate = true
+            coinMaterials.add(cloned)
+            trackedMaterials.push(cloned)
+            return cloned
+          })
+        } else if (child.material) {
+          const cloned = child.material.clone()
+          cloned.transparent = true
+          cloned.opacity = 0
+          cloned.envMapIntensity = 1.85
+          cloned.metalness = Math.min(1, (cloned.metalness ?? 1) * 1.05)
+          cloned.roughness = Math.max(0.05, (cloned.roughness ?? 0.3) * 0.9)
+          cloned.needsUpdate = true
+          coinMaterials.add(cloned)
+          trackedMaterials.push(cloned)
+          child.material = cloned
+        }
       }
     })
 
-    instance.scale.setScalar(coinTemplateScale * coinSettings.scale)
-    instance.position.set(
-      (Math.random() - 0.5) * coinSettings.scatter * 2,
-      (Math.random() - 0.5) * coinSettings.scatter * 1.4,
-      (Math.random() - 0.5) * coinSettings.scatter * 2
-    )
-
-    const baseRotationX = 0.08 + (Math.random() - 0.5) * 0.35
-    const baseRotationY = (Math.random() - 0.5) * 0.65
-    const spinOffset = Math.random() * Math.PI * 2
-    const spinSpeed = (0.12 + Math.random() * 0.08) * coinSettings.rotationSpeed
-
-    instance.rotation.set(baseRotationX, baseRotationY, spinOffset)
-
-    coinGroup.add(instance)
-
-    coins.push({
+    const coinData = {
       mesh: instance,
-      baseX: instance.position.x,
-      baseY: instance.position.y,
-      baseZ: instance.position.z,
+      materials: trackedMaterials,
+      baseX: 0,
+      baseZ: 0,
       phase: Math.random() * Math.PI * 2,
-      sway: 0.3 + Math.random() * 0.18,
-      baseRotationX,
-      baseRotationY,
-      spinOffset,
-      spinSpeed,
-    })
+      sway: 0.25 + Math.random() * 0.2,
+      baseRotationX: 0,
+      baseRotationY: 0,
+      spinOffset: Math.random() * Math.PI * 2,
+      spinSpeed: (0.14 + Math.random() * 0.1) * coinSettings.rotationSpeed,
+      riseSpeed: 0.3,
+      spawnY: 0,
+      fadeInEnd: 0,
+      fadeOutStart: 0,
+      despawnY: 0,
+      y: 0,
+      opacity: 0,
+    }
+
+    instance.scale.setScalar(coinTemplateScale * coinSettings.scale)
+    coinGroup.add(instance)
+    coins.push(coinData)
+    alignCoinState(coinData, true)
   }
 
   if (uiControls && typeof uiControls.updateEnvironment === 'function') {
     uiControls.updateEnvironment()
   }
+}
+
+function alignCoinState(coin, initial = false) {
+  const scatter = coinSettings.scatter
+  const spawnDepth = -scatter * 1.7 - 1.5 - Math.random() * 1.8
+  const visibleTop = scatter * 1.25 + 1.6
+
+  coin.baseX = (Math.random() - 0.5) * scatter * 2.4
+  coin.baseZ = (Math.random() - 0.5) * scatter * 2.2
+  coin.baseRotationX = (Math.random() - 0.5) * 0.35
+  coin.baseRotationY = (Math.random() - 0.5) * 0.65
+  coin.spinOffset = Math.random() * Math.PI * 2
+  coin.spinSpeed = (0.14 + Math.random() * 0.1) * coinSettings.rotationSpeed
+  coin.riseSpeed = THREE.MathUtils.lerp(
+    coinFlowSettings.riseSpeedMin,
+    coinFlowSettings.riseSpeedMax,
+    Math.random()
+  )
+
+  coin.spawnY = spawnDepth
+  coin.fadeInEnd = spawnDepth + coinFlowSettings.fadeInHeight
+  coin.fadeOutStart = visibleTop - coinFlowSettings.fadeOutBuffer
+  coin.despawnY = visibleTop + coinFlowSettings.despawnBuffer
+  coin.y = initial
+    ? THREE.MathUtils.lerp(coin.spawnY, coin.fadeOutStart, Math.random())
+    : coin.spawnY
+  coin.opacity = 0
+
+  coin.mesh.position.set(coin.baseX, coin.y, coin.baseZ)
+  coin.mesh.rotation.set(coin.baseRotationX, coin.baseRotationY, coin.spinOffset)
+  updateCoinOpacity(coin, 0)
+}
+
+function updateCoinOpacity(coin, alpha) {
+  const clamped = THREE.MathUtils.clamp(alpha, 0, 1)
+  if (Math.abs(clamped - coin.opacity) < 0.001) {
+    return
+  }
+  coin.opacity = clamped
+  coin.materials.forEach((material) => {
+    material.opacity = clamped
+    material.needsUpdate = true
+  })
 }
 
 function applyFog() {
