@@ -424,10 +424,10 @@ function rebuildCoins() {
       (Math.random() - 0.5) * coinSettings.scatter * 2
     )
 
-    const baseRotationX = Math.PI / 2 - 0.12 + (Math.random() - 0.5) * 0.16
-    const baseRotationY = (Math.random() - 0.5) * 0.18
+    const baseRotationX = Math.PI / 2 - 0.35 + (Math.random() - 0.5) * 0.25
+    const baseRotationY = (Math.random() - 0.5) * 0.4
     const spinOffset = Math.random() * Math.PI * 2
-    const spinSpeed = (0.06 + Math.random() * 0.025) * coinSettings.rotationSpeed
+    const spinSpeed = (0.12 + Math.random() * 0.08) * coinSettings.rotationSpeed
 
     instance.rotation.set(baseRotationX, baseRotationY, spinOffset)
 
