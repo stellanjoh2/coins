@@ -99,8 +99,10 @@ const clock = new THREE.Clock()
 const cameraShake = {
   amplitude: 0.06,
   frequency: 0.18,
+  lookHeight: 0.8,
   offset: new THREE.Vector3(),
 }
+
 const baseCameraPosition = new THREE.Vector3().copy(camera.position)
 
 const { gradientMaterial, gradientMesh } = createGradientBackground()
@@ -228,7 +230,7 @@ function animate() {
     Math.cos(shakePhase * 1.1 + 1.4) * cameraShake.amplitude * 0.8
   )
   camera.position.copy(baseCameraPosition).add(cameraShake.offset)
-  camera.lookAt(0, 0.8, 0)
+  camera.lookAt(0, cameraShake.lookHeight, 0)
 
   gradientMaterial.uniforms.uAspect.value = window.innerWidth / window.innerHeight
 
@@ -427,6 +429,7 @@ function bindUI({
   coinMaterials,
   fogSettings,
   coinSettings,
+  cameraShake,
   rebuildCoins,
   applyFog,
   composer,
@@ -452,6 +455,9 @@ function bindUI({
     coinScatter: document.getElementById('coin-scatter'),
     coinRotation: document.getElementById('coin-rotation'),
     coinScale: document.getElementById('coin-scale'),
+    cameraShakeAmp: document.getElementById('camera-shake-amp'),
+    cameraShakeFreq: document.getElementById('camera-shake-freq'),
+    cameraLookHeight: document.getElementById('camera-look-height'),
     copyButton: document.getElementById('copy-settings'),
   }
 
@@ -463,6 +469,9 @@ function bindUI({
   elements.coinScatter.value = coinSettings.scatter
   elements.coinRotation.value = coinSettings.rotationSpeed
   elements.coinScale.value = coinSettings.scale
+  elements.cameraShakeAmp.value = cameraShake.amplitude
+  elements.cameraShakeFreq.value = cameraShake.frequency
+  elements.cameraLookHeight.value = cameraShake.lookHeight
 
   function updateBloom() {
     bloomPass.enabled = elements.bloomEnabled.checked
@@ -513,6 +522,12 @@ function bindUI({
     })
   }
 
+  function updateCamera() {
+    cameraShake.amplitude = parseFloat(elements.cameraShakeAmp.value)
+    cameraShake.frequency = parseFloat(elements.cameraShakeFreq.value)
+    cameraShake.lookHeight = parseFloat(elements.cameraLookHeight.value)
+  }
+
   function copySettings() {
     const config = {
       bloom: {
@@ -545,6 +560,11 @@ function bindUI({
         scatter: coinSettings.scatter,
         rotationSpeed: coinSettings.rotationSpeed,
         scale: coinSettings.scale,
+      },
+      camera: {
+        amplitude: parseFloat(elements.cameraShakeAmp.value),
+        frequency: parseFloat(elements.cameraShakeFreq.value),
+        lookHeight: parseFloat(elements.cameraLookHeight.value),
       },
       environment: {
         reflection: parseFloat(elements.envIntensity.value),
@@ -591,6 +611,9 @@ function bindUI({
   elements.coinScatter.addEventListener('input', updateCoins)
   elements.coinRotation.addEventListener('input', updateCoins)
   elements.coinScale.addEventListener('input', updateCoins)
+  elements.cameraShakeAmp.addEventListener('input', updateCamera)
+  elements.cameraShakeFreq.addEventListener('input', updateCamera)
+  elements.cameraLookHeight.addEventListener('input', updateCamera)
 
   elements.copyButton.addEventListener('click', copySettings)
 
@@ -600,6 +623,7 @@ function bindUI({
   updateGradient()
   updateEnvironment()
   updateFog()
+  updateCamera()
 
   return {
     updateBloom,
