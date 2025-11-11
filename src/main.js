@@ -60,7 +60,7 @@ const fogSettings = {
 }
 
 const coinSettings = {
-  amount: 16,
+  amount: 24,
   scatter: 10.3,
   rotationSpeed: 1.59,
   scale: 1.23,
@@ -110,8 +110,8 @@ scene.add(camera)
 const clock = new THREE.Clock()
 let elapsedTime = 0
 const cameraShake = {
-  amplitude: 0.09,
-  frequency: 0.25,
+  amplitude: 0.2,
+  frequency: 0.85,
   lookHeight: 0.82,
   offset: new THREE.Vector3(),
 }
