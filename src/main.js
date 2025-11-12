@@ -764,6 +764,14 @@ function bindUI({
     rebuildCoins()
   }
 
+  function adjustScatter(delta) {
+    const min = parseFloat(elements.coinScatter.min)
+    const max = parseFloat(elements.coinScatter.max)
+    coinSettings.scatter = THREE.MathUtils.clamp(coinSettings.scatter + delta, min, max)
+    elements.coinScatter.value = coinSettings.scatter.toFixed(2)
+    updateCoins()
+  }
+
   function updateEnvironment() {
     const intensity = parseFloat(elements.envIntensity.value)
     coinMaterials.forEach((material) => {
@@ -989,6 +997,7 @@ function bindUI({
     updateFog,
     updateCoins,
     updateCamera,
+    adjustScatter,
     updateHemisphereLight,
     updateKeyLight,
     updateRimLight,
@@ -1078,5 +1087,11 @@ function onResize() {
 function onKeyDown(event) {
   if (event.key.toLowerCase() === 'p') {
     uiPanel.classList.toggle('hidden')
+  } else if (event.key === 'ArrowLeft') {
+    event.preventDefault()
+    uiControls?.adjustScatter?.(-0.2)
+  } else if (event.key === 'ArrowRight') {
+    event.preventDefault()
+    uiControls?.adjustScatter?.(0.2)
   }
 }
