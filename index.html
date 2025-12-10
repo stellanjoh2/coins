@@ -11,8 +11,8 @@
     />
     <link rel="icon" type="image/svg+xml" href="./vite.svg" />
     <title>Coldcoins Hero</title>
-    <script type="module" crossorigin src="./assets/index-QvWIv_K3.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-e3PBAtu0.css">
+    <script type="module" crossorigin src="./assets/index-D9-nNoTf.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DVZPAjMN.css">
   </head>
   <body>
     <div id="password-gate" class="password-gate">
@@ -24,7 +24,8 @@
         <div class="password-shortcuts">
           <p class="shortcuts-title">Keyboard Shortcuts:</p>
           <ul class="shortcuts-list">
-            <li><kbd>P</kbd> - Toggle Settings Panel</li>
+            <li><kbd>P</kbd> - Pause Animations</li>
+            <li><kbd>U</kbd> - Toggle Settings Panel</li>
             <li><kbd>R</kbd> - Randomize Coins</li>
             <li><kbd>H</kbd> - Toggle Headline</li>
           </ul>
@@ -211,6 +212,14 @@
             Strength
             <input type="range" id="fill-strength" min="0" max="4" step="0.01" value="1.4" />
           </label>
+        </section>
+        <section>
+          <h3>Headline</h3>
+          <label>
+            Custom Headline
+            <input type="text" id="headline-input" placeholder="Enter headline text" value="This is a headline." />
+          </label>
+          <button id="headline-apply" style="margin-top: 0.5rem;">Apply Headline</button>
         </section>
         <button id="copy-settings">Copy Settings</button>
       </div>
