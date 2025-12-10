@@ -10,166 +10,1059 @@ import hdriUrl from '../media/hdri_sky_860.jpg?url'
 import coinModelUrl from '../3D/coin.glb?url'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
-const canvas = document.getElementById('scene')
-const uiPanel = document.getElementById('ui-panel')
+// Password protection - CHANGE THIS PASSWORD
+const SITE_PASSWORD = 'Rewards'
 
-const ChromaticAberrationShader = {
-  uniforms: {
-    tDiffuse: { value: null },
-    offset: { value: new THREE.Vector2(0.003, -0.003) },
-    direction: { value: new THREE.Vector2(1.0, 0.5) },
-  },
-  vertexShader: `
-    varying vec2 vUv;
-    void main() {
-      vUv = uv;
-      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-    }
-  `,
-  fragmentShader: `
-    uniform sampler2D tDiffuse;
-    uniform vec2 offset;
-    uniform vec2 direction;
-    varying vec2 vUv;
+// Generate a unique page session ID for this page load
+// This changes on every page load/hard refresh, so we can detect fresh loads
+const PAGE_SESSION_ID = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
-    void main() {
-      vec2 dir = normalize(direction);
-      vec4 baseColor = texture2D(tDiffuse, vUv);
-      float shiftR = texture2D(tDiffuse, vUv + dir * offset.x).r;
-      float shiftB = texture2D(tDiffuse, vUv - dir * offset.y).b;
-      gl_FragColor = vec4(shiftR, baseColor.g, shiftB, baseColor.a);
-    }
-  `,
-}
+// Password gate logic - wait for DOM to be ready
+function initPasswordGate() {
+  const passwordGate = document.getElementById('password-gate')
+  const passwordInput = document.getElementById('password-input')
+  const passwordSubmit = document.getElementById('password-submit')
+  const passwordError = document.getElementById('password-error')
+  const app = document.getElementById('app')
 
-const renderer = new THREE.WebGLRenderer({
-  canvas,
-  antialias: true,
-  alpha: true,
-})
-renderer.setSize(window.innerWidth, window.innerHeight)
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-renderer.outputColorSpace = THREE.SRGBColorSpace
-renderer.toneMapping = THREE.ACESFilmicToneMapping
-renderer.toneMappingExposure = 1.05
-
-const fogSettings = {
-  strength: 0.65,
-  distance: 32,
-  color: '#4c13c9',
-}
-
-const coinSettings = {
-  amount: 24,
-  scatter: 9.4,
-  rotationSpeed: 1.59,
-  scale: 1.23,
-}
-
-const baseCoinDimensions = {
-  radius: 1.35,
-  depth: 0.24,
-}
-
-const coinFlowSettings = {
-  riseSpeedMin: 0.32,
-  riseSpeedMax: 0.58,
-  fadeInHeight: 1.1,
-  fadeOutBuffer: 1.4,
-  despawnBuffer: 3.0,
-}
-
-const scene = new THREE.Scene()
-scene.fog = new THREE.Fog(new THREE.Color(fogSettings.color), 2, fogSettings.distance)
-
-const pmremGenerator = new THREE.PMREMGenerator(renderer)
-pmremGenerator.compileEquirectangularShader()
-
-const gltfLoader = new GLTFLoader()
-
-new THREE.TextureLoader().load(
-  hdriUrl,
-  (texture) => {
-    texture.mapping = THREE.EquirectangularReflectionMapping
-    texture.colorSpace = THREE.SRGBColorSpace
-    const envTexture = pmremGenerator.fromEquirectangular(texture).texture
-    scene.environment = envTexture
-    texture.dispose()
-    pmremGenerator.dispose()
-  },
-  undefined,
-  () => {
-    pmremGenerator.dispose()
+  if (!passwordGate || !passwordInput || !passwordSubmit || !app) {
+    console.error('Password gate elements not found')
+    return
   }
-)
 
-const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100)
-camera.position.set(0, 1.8, 11.5)
-scene.add(camera)
+  function checkPassword() {
+    const enteredPassword = passwordInput.value.trim()
+    
+    if (enteredPassword === SITE_PASSWORD) {
+      // Store verification with current page session ID
+      sessionStorage.setItem('password_verified', 'true')
+      sessionStorage.setItem('password_session_id', PAGE_SESSION_ID)
+      passwordGate.classList.add('hidden')
+      app.classList.remove('hidden')
+      // Initialize the scene after password is verified
+      initScene()
+    } else {
+      passwordError.textContent = 'Incorrect password. Please try again.'
+      passwordError.classList.add('show')
+      passwordInput.value = ''
+      passwordInput.focus()
+      setTimeout(() => {
+        passwordError.classList.remove('show')
+      }, 3000)
+    }
+  }
 
-const clock = new THREE.Clock()
-let elapsedTime = 0
-const cameraShake = {
-  amplitude: 0,
-  frequency: 0,
-  lookHeight: 0.8,
-  offset: new THREE.Vector3(),
+  // Check if already verified in this page session
+  // On hard refresh, PAGE_SESSION_ID changes, so password will be required again
+  const storedSessionId = sessionStorage.getItem('password_session_id')
+  const isVerified = sessionStorage.getItem('password_verified') === 'true' && storedSessionId === PAGE_SESSION_ID
+  
+  if (isVerified) {
+    // Hide password gate and show app
+    passwordGate.classList.add('hidden')
+    app.classList.remove('hidden')
+    // Initialize immediately if already verified
+    initScene()
+  } else {
+    // Clear any old session data
+    sessionStorage.removeItem('password_verified')
+    sessionStorage.removeItem('password_session_id')
+    // Ensure password gate is visible and app is hidden
+    passwordGate.classList.remove('hidden')
+    app.classList.add('hidden')
+    // Set up password gate event listeners
+    passwordSubmit.addEventListener('click', checkPassword)
+    passwordInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        checkPassword()
+      }
+    })
+    // Focus input after a small delay to ensure it's ready
+    setTimeout(() => {
+      passwordInput.focus()
+    }, 100)
+  }
 }
 
-const lightSettings = {
-  hemisphere: {
-    skyColor: '#9abfff',
-    groundColor: '#02060d',
-    intensity: 1.27,
-  },
-  directional: {
-    color: '#ffffff',
-    intensity: 1.2,
-  },
-  rim: {
-    color: '#ffcc88',
-    intensity: 3.38,
-  },
-  fill: {
-    color: '#66aaff',
-    intensity: 1.4,
-  },
+// Initialize when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    setTimeout(initPasswordGate, 50)
+  })
+} else {
+  setTimeout(initPasswordGate, 50)
 }
 
-const dynamicHeadlineWords = [
-  'Horizon',
-  'Symphony',
-  'Nebula',
-  'Odyssey',
-  'Cascade',
-  'Aurora',
-  'Infinity',
-  'Velocity',
-  'Radiance',
-  'Elysium',
-]
+// Wrap the entire scene initialization in a function
+function initScene() {
+  const canvas = document.getElementById('scene')
+  const uiPanel = document.getElementById('ui-panel')
 
-const baseCameraPosition = new THREE.Vector3().copy(camera.position)
+  // Define helper functions first
+  function createGradientBackground() {
+    const geometry = new THREE.PlaneGeometry(90, 90)
+    const shaderMaterial = new THREE.ShaderMaterial({
+      uniforms: {
+        uColorInner: { value: new THREE.Color('#8a3dd6') },
+        uColorOuter: { value: new THREE.Color('#01000f') },
+        uAspect: { value: window.innerWidth / window.innerHeight },
+      },
+      vertexShader: `
+        varying vec2 vUv;
+        void main() {
+          vUv = uv;
+          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+        }
+      `,
+      fragmentShader: `
+        varying vec2 vUv;
+        uniform vec3 uColorInner;
+        uniform vec3 uColorOuter;
+        uniform float uAspect;
+        void main() {
+          vec2 centered = vUv - 0.5;
+          centered.x *= uAspect * 1.15;
+          float dist = length(centered) * 1.75;
+          float falloff = smoothstep(0.0, 1.0, dist);
+          vec3 color = mix(uColorInner, uColorOuter, falloff);
+          gl_FragColor = vec4(color, 1.0);
+        }
+      `,
+      depthWrite: false,
+      depthTest: false,
+    })
 
-const { gradientMaterial, gradientMesh } = createGradientBackground()
-scene.add(gradientMesh)
+    const mesh = new THREE.Mesh(geometry, shaderMaterial)
+    mesh.position.z = -15
+    mesh.renderOrder = -1
 
-const coinMaterials = new Set()
-let coins = []
-const coinGroup = new THREE.Group()
-scene.add(coinGroup)
-let uiControls = null
-let coinTemplate = null
-let coinTemplateScale = 1
-const coinTemplateCenter = new THREE.Vector3()
-let hemiLight = null
-let keyLight = null
-let rimLight = null
-let fillLight = null
+    return { gradientMaterial: shaderMaterial, gradientMesh: mesh }
+  }
 
-gltfLoader.load(
-  coinModelUrl,
-  (gltf) => {
+  function createDustParticles() {
+    const particles = 800
+    const geometry = new THREE.BufferGeometry()
+    const positions = new Float32Array(particles * 3)
+    const sizes = new Float32Array(particles)
+
+    for (let i = 0; i < particles; i++) {
+      const radius = 12 * Math.random()
+      const angle = Math.random() * Math.PI * 2
+      const height = (Math.random() - 0.5) * 8
+      positions[i * 3] = Math.cos(angle) * radius
+      positions[i * 3 + 1] = height
+      positions[i * 3 + 2] = Math.sin(angle) * radius
+      sizes[i] = Math.random() * 0.5 + 0.2
+    }
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
+    geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1))
+
+    const material = new THREE.PointsMaterial({
+      color: new THREE.Color(0xa9c6ff),
+      size: 0.04,
+      sizeAttenuation: true,
+      transparent: true,
+      opacity: 0.35,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    })
+
+    const points = new THREE.Points(geometry, material)
+    points.position.z = -2
+    return points
+  }
+
+  // Declare variables that will be used by functions
+  let hemiLight = null
+  let keyLight = null
+  let rimLight = null
+  let fillLight = null
+  let coinTemplate = null
+  let coinTemplateScale = 1
+  const coinTemplateCenter = new THREE.Vector3()
+  const coinMaterials = new Set()
+  let coins = []
+  const coinGroup = new THREE.Group()
+  let uiControls = null
+  let scene = null
+  let camera = null
+  let renderer = null
+  let composer = null
+  let bloomPass = null
+  let gradientMaterial = null
+  let fogSettings = null
+  let coinSettings = null
+  let baseCoinDimensions = null
+  let coinFlowSettings = null
+  let cameraShake = null
+  let lightSettings = null
+  let baseCameraPosition = null
+  let dust = null
+
+  function createLighting() {
+    hemiLight = new THREE.HemisphereLight(
+      new THREE.Color(lightSettings.hemisphere.skyColor),
+      new THREE.Color(lightSettings.hemisphere.groundColor),
+      lightSettings.hemisphere.intensity
+    )
+    scene.add(hemiLight)
+
+    keyLight = new THREE.DirectionalLight(
+      new THREE.Color(lightSettings.directional.color),
+      lightSettings.directional.intensity
+    )
+    keyLight.position.set(5, 8, 5)
+    keyLight.castShadow = false
+    scene.add(keyLight)
+
+    rimLight = new THREE.SpotLight(
+      new THREE.Color(lightSettings.rim.color),
+      lightSettings.rim.intensity,
+      40,
+      Math.PI / 5,
+      0.35,
+      1.8
+    )
+    rimLight.position.set(-6, 6, -2)
+    scene.add(rimLight)
+
+    fillLight = new THREE.PointLight(
+      new THREE.Color(lightSettings.fill.color),
+      lightSettings.fill.intensity,
+      18
+    )
+    fillLight.position.set(0, -1.5, 3.5)
+    scene.add(fillLight)
+  }
+
+  function findSpawnPosition(targetCoin) {
+    const scatter = coinSettings.scatter
+    const minDistance =
+      (baseCoinDimensions.radius * coinSettings.scale * 2) * 0.85 + 0.6
+    const minDistanceSq = minDistance * minDistance
+    const attempts = 60
+
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+      const x = (Math.random() - 0.5) * scatter * 2.4
+      const z = (Math.random() - 0.5) * scatter * 2.2
+
+      let separated = true
+      for (const other of coins) {
+        if (other === targetCoin) continue
+        const dx = x - other.baseX
+        const dz = z - other.baseZ
+        if (dx * dx + dz * dz < minDistanceSq) {
+          separated = false
+          break
+        }
+      }
+
+      if (separated) {
+        return { x, z }
+      }
+    }
+
+    return {
+      x: (Math.random() - 0.5) * scatter * 2.4,
+      z: (Math.random() - 0.5) * scatter * 2.2,
+    }
+  }
+
+  function alignCoinState(coin, initial = false) {
+    const scatter = coinSettings.scatter
+    const spawnDepth = -scatter * 1.7 - 1.5 - Math.random() * 1.8
+    const visibleTop = scatter * 1.25 + 1.6
+
+    const spawnPos = findSpawnPosition(coin)
+    coin.baseX = spawnPos.x
+    coin.baseZ = spawnPos.z
+    coin.baseRotationX = (Math.random() - 0.5) * 0.35
+    coin.baseRotationY = (Math.random() - 0.5) * 0.65
+    coin.spinOffset = Math.random() * Math.PI * 2
+    coin.spinSpeed = (0.14 + Math.random() * 0.1) * coinSettings.rotationSpeed
+    coin.riseSpeed = THREE.MathUtils.lerp(
+      coinFlowSettings.riseSpeedMin,
+      coinFlowSettings.riseSpeedMax,
+      Math.random()
+    )
+
+    coin.spawnY = spawnDepth
+    coin.fadeInEnd = spawnDepth + coinFlowSettings.fadeInHeight
+    coin.fadeOutStart = visibleTop - coinFlowSettings.fadeOutBuffer
+    coin.despawnY = visibleTop + coinFlowSettings.despawnBuffer
+    coin.y = initial
+      ? THREE.MathUtils.lerp(coin.spawnY, coin.fadeOutStart, Math.random())
+      : coin.spawnY
+    coin.opacity = 0
+
+    coin.mesh.position.set(coin.baseX, coin.y, coin.baseZ)
+    coin.mesh.rotation.set(coin.baseRotationX, coin.baseRotationY, coin.spinOffset)
+    updateCoinOpacity(coin, 0)
+  }
+
+  function updateCoinOpacity(coin, alpha) {
+    const clamped = THREE.MathUtils.clamp(alpha, 0, 1)
+    if (Math.abs(clamped - coin.opacity) < 0.001) {
+      return
+    }
+    coin.opacity = clamped
+    coin.materials.forEach((material) => {
+      material.opacity = clamped
+      material.needsUpdate = true
+    })
+  }
+
+  function rebuildCoins() {
+    coins.forEach((coin) => {
+      coinGroup.remove(coin.mesh)
+      coin.mesh.traverse((child) => {
+        if (child.isMesh) {
+          if (Array.isArray(child.material)) {
+            child.material.forEach((material) => material.dispose())
+          } else if (child.material) {
+            child.material.dispose()
+          }
+        }
+      })
+    })
+    coins = []
+    coinMaterials.clear()
+
+    if (!coinTemplate) {
+      return
+    }
+
+    for (let i = 0; i < coinSettings.amount; i += 1) {
+      const instance = coinTemplate.clone(true)
+      const trackedMaterials = []
+
+      instance.traverse((child) => {
+        if (child.isMesh) {
+          if (Array.isArray(child.material)) {
+            child.material = child.material.map((mat) => {
+              const cloned = mat.clone()
+              cloned.transparent = true
+              cloned.opacity = 0
+              cloned.envMapIntensity = 1.85
+              cloned.metalness = Math.min(1, (cloned.metalness ?? 1) * 1.05)
+              cloned.roughness = Math.max(0.05, (cloned.roughness ?? 0.3) * 0.9)
+              cloned.needsUpdate = true
+              coinMaterials.add(cloned)
+              trackedMaterials.push(cloned)
+              return cloned
+            })
+          } else if (child.material) {
+            const cloned = child.material.clone()
+            cloned.transparent = true
+            cloned.opacity = 0
+            cloned.envMapIntensity = 1.85
+            cloned.metalness = Math.min(1, (cloned.metalness ?? 1) * 1.05)
+            cloned.roughness = Math.max(0.05, (cloned.roughness ?? 0.3) * 0.9)
+            cloned.needsUpdate = true
+            coinMaterials.add(cloned)
+            trackedMaterials.push(cloned)
+            child.material = cloned
+          }
+        }
+      })
+
+      const coinData = {
+        mesh: instance,
+        materials: trackedMaterials,
+        baseX: 0,
+        baseZ: 0,
+        phase: Math.random() * Math.PI * 2,
+        sway: 0.25 + Math.random() * 0.2,
+        baseRotationX: 0,
+        baseRotationY: 0,
+        spinOffset: Math.random() * Math.PI * 2,
+        spinSpeed: (0.14 + Math.random() * 0.1) * coinSettings.rotationSpeed,
+        riseSpeed: 0.3,
+        spawnY: 0,
+        fadeInEnd: 0,
+        fadeOutStart: 0,
+        despawnY: 0,
+        y: 0,
+        opacity: 0,
+      }
+
+      instance.scale.setScalar(coinTemplateScale * coinSettings.scale)
+      coinGroup.add(instance)
+      coins.push(coinData)
+      alignCoinState(coinData, true)
+    }
+
+    if (uiControls && typeof uiControls.updateEnvironment === 'function') {
+      uiControls.updateEnvironment()
+    }
+  }
+
+  function applyFog() {
+    const color = new THREE.Color(fogSettings.color)
+    const distance = Math.max(fogSettings.distance, 6)
+    const near = Math.max(0.1, distance * (1 - fogSettings.strength * 0.85))
+    const far = Math.max(distance, near + 5)
+
+    scene.fog.color.copy(color)
+    scene.fog.near = near
+    scene.fog.far = far
+  }
+
+  function bindUI({
+    bloomPass,
+    chromaticAberrationPass,
+    bokehPass,
+    gradientMaterial,
+    coinMaterials,
+    fogSettings,
+    coinSettings,
+    cameraShake,
+    lightSettings,
+    rebuildCoins,
+    applyFog,
+    composer,
+  }) {
+    const elements = {
+      bloomEnabled: document.getElementById('bloom-enabled'),
+      bloomStrength: document.getElementById('bloom-strength'),
+      bloomRadius: document.getElementById('bloom-radius'),
+      bloomThreshold: document.getElementById('bloom-threshold'),
+      caEnabled: document.getElementById('ca-enabled'),
+      caOffset: document.getElementById('ca-offset'),
+      dofEnabled: document.getElementById('dof-enabled'),
+      dofFocus: document.getElementById('dof-focus'),
+      dofAperture: document.getElementById('dof-aperture'),
+      dofMaxblur: document.getElementById('dof-maxblur'),
+      gradientInner: document.getElementById('gradient-inner'),
+      gradientOuter: document.getElementById('gradient-outer'),
+      envIntensity: document.getElementById('env-intensity'),
+      fogStrength: document.getElementById('fog-strength'),
+      fogDistance: document.getElementById('fog-distance'),
+      fogColor: document.getElementById('fog-color'),
+      coinAmount: document.getElementById('coin-amount'),
+      coinScatter: document.getElementById('coin-scatter'),
+      coinRotation: document.getElementById('coin-rotation'),
+      coinScale: document.getElementById('coin-scale'),
+      cameraShakeAmp: document.getElementById('camera-shake-amp'),
+      cameraShakeFreq: document.getElementById('camera-shake-freq'),
+      cameraLookHeight: document.getElementById('camera-look-height'),
+      hemiSky: document.getElementById('hemi-sky'),
+      hemiGround: document.getElementById('hemi-ground'),
+      hemiStrength: document.getElementById('hemi-strength'),
+      keyColor: document.getElementById('key-color'),
+      keyStrength: document.getElementById('key-strength'),
+      rimColor: document.getElementById('rim-color'),
+      rimStrength: document.getElementById('rim-strength'),
+      fillColor: document.getElementById('fill-color'),
+      fillStrength: document.getElementById('fill-strength'),
+      copyButton: document.getElementById('copy-settings'),
+    }
+
+    elements.fogStrength.value = fogSettings.strength
+    elements.fogDistance.value = fogSettings.distance
+    elements.fogColor.value = fogSettings.color
+
+    elements.coinAmount.value = coinSettings.amount
+    elements.coinScatter.value = coinSettings.scatter
+    elements.coinRotation.value = coinSettings.rotationSpeed
+    elements.coinScale.value = coinSettings.scale
+    if (elements.cameraShakeAmp) {
+      elements.cameraShakeAmp.value = cameraShake.amplitude
+    }
+    if (elements.cameraShakeFreq) {
+      elements.cameraShakeFreq.value = cameraShake.frequency
+    }
+    if (elements.cameraLookHeight) {
+      elements.cameraLookHeight.value = cameraShake.lookHeight
+    }
+    if (elements.hemiSky) {
+      elements.hemiSky.value = lightSettings.hemisphere.skyColor
+    }
+    if (elements.hemiGround) {
+      elements.hemiGround.value = lightSettings.hemisphere.groundColor
+    }
+    if (elements.hemiStrength) {
+      elements.hemiStrength.value = lightSettings.hemisphere.intensity
+    }
+    if (elements.keyColor) {
+      elements.keyColor.value = lightSettings.directional.color
+    }
+    if (elements.keyStrength) {
+      elements.keyStrength.value = lightSettings.directional.intensity
+    }
+    if (elements.rimColor) {
+      elements.rimColor.value = lightSettings.rim.color
+    }
+    if (elements.rimStrength) {
+      elements.rimStrength.value = lightSettings.rim.intensity
+    }
+    if (elements.fillColor) {
+      elements.fillColor.value = lightSettings.fill.color
+    }
+    if (elements.fillStrength) {
+      elements.fillStrength.value = lightSettings.fill.intensity
+    }
+
+    function updateBloom() {
+      bloomPass.enabled = elements.bloomEnabled.checked
+      bloomPass.strength = parseFloat(elements.bloomStrength.value)
+      bloomPass.radius = parseFloat(elements.bloomRadius.value)
+      bloomPass.threshold = parseFloat(elements.bloomThreshold.value)
+    }
+
+    function updateChromaticAberration() {
+      const offsetValue = parseFloat(elements.caOffset.value)
+      chromaticAberrationPass.enabled = elements.caEnabled.checked
+      chromaticAberrationPass.uniforms.offset.value.set(offsetValue, -offsetValue)
+    }
+
+    function updateDOF() {
+      bokehPass.enabled = elements.dofEnabled.checked
+      bokehPass.materialBokeh.uniforms.focus.value = parseFloat(elements.dofFocus.value)
+      bokehPass.materialBokeh.uniforms.aperture.value = parseFloat(elements.dofAperture.value)
+      bokehPass.materialBokeh.uniforms.maxblur.value = parseFloat(elements.dofMaxblur.value)
+    }
+
+    function updateGradient() {
+      gradientMaterial.uniforms.uColorInner.value.set(elements.gradientInner.value)
+      gradientMaterial.uniforms.uColorOuter.value.set(elements.gradientOuter.value)
+    }
+
+    function updateFog() {
+      fogSettings.strength = parseFloat(elements.fogStrength.value)
+      fogSettings.distance = parseFloat(elements.fogDistance.value)
+      fogSettings.color = elements.fogColor.value
+      applyFog()
+    }
+
+    function updateCoins() {
+      coinSettings.amount = Math.max(3, Math.min(28, Math.round(elements.coinAmount.value)))
+      elements.coinAmount.value = coinSettings.amount
+      coinSettings.scatter = parseFloat(elements.coinScatter.value)
+      coinSettings.rotationSpeed = parseFloat(elements.coinRotation.value)
+      coinSettings.scale = parseFloat(elements.coinScale.value)
+      rebuildCoins()
+    }
+
+    function randomizeCoins() {
+      // Randomize Amount (3 to 28)
+      const randomAmount = Math.floor(Math.random() * (28 - 3 + 1)) + 3
+      elements.coinAmount.value = randomAmount
+      
+      // Randomize Scatter (3 to 16)
+      const scatterMin = parseFloat(elements.coinScatter.min)
+      const scatterMax = parseFloat(elements.coinScatter.max)
+      const randomScatter = THREE.MathUtils.lerp(scatterMin, scatterMax, Math.random())
+      elements.coinScatter.value = randomScatter.toFixed(1)
+      
+      // Randomize Rotation Speed (0.3 to 2.5)
+      const rotationMin = parseFloat(elements.coinRotation.min)
+      const rotationMax = parseFloat(elements.coinRotation.max)
+      const randomRotation = THREE.MathUtils.lerp(rotationMin, rotationMax, Math.random())
+      elements.coinRotation.value = randomRotation.toFixed(2)
+      
+      // Randomize Scale (0.6 to 1.8)
+      const scaleMin = parseFloat(elements.coinScale.min)
+      const scaleMax = parseFloat(elements.coinScale.max)
+      const randomScale = THREE.MathUtils.lerp(scaleMin, scaleMax, Math.random())
+      elements.coinScale.value = randomScale.toFixed(2)
+      
+      // Update coins with new random values
+      updateCoins()
+    }
+
+    function adjustScatter(delta) {
+      const min = parseFloat(elements.coinScatter.min)
+      const max = parseFloat(elements.coinScatter.max)
+      coinSettings.scatter = THREE.MathUtils.clamp(coinSettings.scatter + delta, min, max)
+      elements.coinScatter.value = coinSettings.scatter.toFixed(2)
+      updateCoins()
+    }
+
+    function updateEnvironment() {
+      const intensity = parseFloat(elements.envIntensity.value)
+      coinMaterials.forEach((material) => {
+        material.envMapIntensity = intensity
+        material.needsUpdate = true
+      })
+    }
+
+    function updateCamera() {
+      if (elements.cameraShakeAmp) {
+        cameraShake.amplitude = parseFloat(elements.cameraShakeAmp.value)
+      }
+      if (elements.cameraShakeFreq) {
+        cameraShake.frequency = parseFloat(elements.cameraShakeFreq.value)
+      }
+      if (elements.cameraLookHeight) {
+        cameraShake.lookHeight = parseFloat(elements.cameraLookHeight.value)
+      }
+    }
+
+    function updateHemisphereLight() {
+      if (!hemiLight) return
+      if (elements.hemiSky) {
+        lightSettings.hemisphere.skyColor = elements.hemiSky.value
+        hemiLight.color.set(lightSettings.hemisphere.skyColor)
+      }
+      if (elements.hemiGround) {
+        lightSettings.hemisphere.groundColor = elements.hemiGround.value
+        hemiLight.groundColor.set(lightSettings.hemisphere.groundColor)
+      }
+      if (elements.hemiStrength) {
+        lightSettings.hemisphere.intensity = parseFloat(elements.hemiStrength.value)
+        hemiLight.intensity = lightSettings.hemisphere.intensity
+      }
+    }
+
+    function updateKeyLight() {
+      if (!keyLight) return
+      if (elements.keyColor) {
+        lightSettings.directional.color = elements.keyColor.value
+        keyLight.color.set(lightSettings.directional.color)
+      }
+      if (elements.keyStrength) {
+        lightSettings.directional.intensity = parseFloat(elements.keyStrength.value)
+        keyLight.intensity = lightSettings.directional.intensity
+      }
+    }
+
+    function updateRimLight() {
+      if (!rimLight) return
+      if (elements.rimColor) {
+        lightSettings.rim.color = elements.rimColor.value
+        rimLight.color.set(lightSettings.rim.color)
+      }
+      if (elements.rimStrength) {
+        lightSettings.rim.intensity = parseFloat(elements.rimStrength.value)
+        rimLight.intensity = lightSettings.rim.intensity
+      }
+    }
+
+    function updateFillLight() {
+      if (!fillLight) return
+      if (elements.fillColor) {
+        lightSettings.fill.color = elements.fillColor.value
+        fillLight.color.set(lightSettings.fill.color)
+      }
+      if (elements.fillStrength) {
+        lightSettings.fill.intensity = parseFloat(elements.fillStrength.value)
+        fillLight.intensity = lightSettings.fill.intensity
+      }
+    }
+
+    function copySettings() {
+      const config = {
+        bloom: {
+          enabled: elements.bloomEnabled.checked,
+          strength: parseFloat(elements.bloomStrength.value),
+          radius: parseFloat(elements.bloomRadius.value),
+          threshold: parseFloat(elements.bloomThreshold.value),
+        },
+        chromaticAberration: {
+          enabled: elements.caEnabled.checked,
+          offset: parseFloat(elements.caOffset.value),
+        },
+        depthOfField: {
+          enabled: elements.dofEnabled.checked,
+          focus: parseFloat(elements.dofFocus.value),
+          aperture: parseFloat(elements.dofAperture.value),
+          maxblur: parseFloat(elements.dofMaxblur.value),
+        },
+        gradient: {
+          inner: elements.gradientInner.value,
+          outer: elements.gradientOuter.value,
+        },
+        fog: {
+          strength: parseFloat(elements.fogStrength.value),
+          distance: parseFloat(elements.fogDistance.value),
+          color: elements.fogColor.value,
+        },
+        coins: {
+          amount: coinSettings.amount,
+          scatter: coinSettings.scatter,
+          rotationSpeed: coinSettings.rotationSpeed,
+          scale: coinSettings.scale,
+        },
+        camera:
+          elements.cameraShakeAmp && elements.cameraShakeFreq && elements.cameraLookHeight
+            ? {
+                amplitude: parseFloat(elements.cameraShakeAmp.value),
+                frequency: parseFloat(elements.cameraShakeFreq.value),
+                lookHeight: parseFloat(elements.cameraLookHeight.value),
+              }
+            : undefined,
+        lights: {
+          hemisphere:
+            elements.hemiSky && elements.hemiGround && elements.hemiStrength
+              ? {
+                  skyColor: elements.hemiSky.value,
+                  groundColor: elements.hemiGround.value,
+                  intensity: parseFloat(elements.hemiStrength.value),
+                }
+              : undefined,
+          directional:
+            elements.keyColor && elements.keyStrength
+              ? {
+                  color: elements.keyColor.value,
+                  intensity: parseFloat(elements.keyStrength.value),
+                }
+              : undefined,
+          rim:
+            elements.rimColor && elements.rimStrength
+              ? {
+                  color: elements.rimColor.value,
+                  intensity: parseFloat(elements.rimStrength.value),
+                }
+              : undefined,
+          fill:
+            elements.fillColor && elements.fillStrength
+              ? {
+                  color: elements.fillColor.value,
+                  intensity: parseFloat(elements.fillStrength.value),
+                }
+              : undefined,
+        },
+        environment: {
+          reflection: parseFloat(elements.envIntensity.value),
+        },
+      }
+
+      navigator.clipboard?.writeText(JSON.stringify(config, null, 2)).then(
+        () => {
+          const label = elements.copyButton.textContent
+          elements.copyButton.textContent = 'Copied!'
+          setTimeout(() => {
+            elements.copyButton.textContent = label
+          }, 1500)
+        },
+        () => {
+          window.alert(JSON.stringify(config, null, 2))
+        }
+      )
+    }
+
+    elements.bloomEnabled.addEventListener('change', updateBloom)
+    elements.bloomStrength.addEventListener('input', updateBloom)
+    elements.bloomRadius.addEventListener('input', updateBloom)
+    elements.bloomThreshold.addEventListener('input', updateBloom)
+
+    elements.caEnabled.addEventListener('change', updateChromaticAberration)
+    elements.caOffset.addEventListener('input', updateChromaticAberration)
+
+    elements.dofEnabled.addEventListener('change', updateDOF)
+    elements.dofFocus.addEventListener('input', updateDOF)
+    elements.dofAperture.addEventListener('input', updateDOF)
+    elements.dofMaxblur.addEventListener('input', updateDOF)
+
+    elements.gradientInner.addEventListener('input', updateGradient)
+    elements.gradientOuter.addEventListener('input', updateGradient)
+    elements.envIntensity.addEventListener('input', updateEnvironment)
+    elements.fogStrength.addEventListener('input', updateFog)
+    elements.fogDistance.addEventListener('input', updateFog)
+    elements.fogColor.addEventListener('input', updateFog)
+    elements.coinAmount.addEventListener('change', updateCoins)
+    elements.coinAmount.addEventListener('input', (event) => {
+      event.target.setAttribute('value', event.target.value)
+    })
+    elements.coinScatter.addEventListener('input', updateCoins)
+    elements.coinRotation.addEventListener('input', updateCoins)
+    elements.coinScale.addEventListener('input', updateCoins)
+    elements.cameraShakeAmp?.addEventListener('input', updateCamera)
+    elements.cameraShakeFreq?.addEventListener('input', updateCamera)
+    elements.cameraLookHeight?.addEventListener('input', updateCamera)
+    elements.hemiSky?.addEventListener('input', updateHemisphereLight)
+    elements.hemiGround?.addEventListener('input', updateHemisphereLight)
+    elements.hemiStrength?.addEventListener('input', updateHemisphereLight)
+    elements.keyColor?.addEventListener('input', updateKeyLight)
+    elements.keyStrength?.addEventListener('input', updateKeyLight)
+    elements.rimColor?.addEventListener('input', updateRimLight)
+    elements.rimStrength?.addEventListener('input', updateRimLight)
+    elements.fillColor?.addEventListener('input', updateFillLight)
+    elements.fillStrength?.addEventListener('input', updateFillLight)
+
+    elements.copyButton.addEventListener('click', copySettings)
+
+    updateBloom()
+    updateChromaticAberration()
+    updateDOF()
+    updateGradient()
+    updateEnvironment()
+    updateFog()
+    updateCamera()
+    updateHemisphereLight()
+    updateKeyLight()
+    updateRimLight()
+    updateFillLight()
+
+    return {
+      updateBloom,
+      updateChromaticAberration,
+      updateDOF,
+      updateGradient,
+      updateEnvironment,
+      updateFog,
+      updateCoins,
+      updateCamera,
+      adjustScatter,
+      randomizeCoins,
+      updateHemisphereLight,
+      updateKeyLight,
+      updateRimLight,
+      updateFillLight,
+    }
+  }
+
+  function playIntroAnimation() {
+    const tl = gsap.timeline({ delay: 0.4, defaults: { ease: 'power3.out', duration: 1.2 } })
+    tl.to('.hero-headline', { opacity: 1, y: 0, duration: 1.4 }, 0)
+      .add(() => startHeadlineCycle(), '-=0.1')
+  }
+
+  function startHeadlineCycle() {
+    const dynamicEl = document.querySelector('.hero-word-dynamic')
+    if (!dynamicEl || dynamicHeadlineWords.length === 0) return
+
+    let index = 0
+
+    const buildLetters = (text, immediate = false) => {
+      dynamicEl.innerHTML = ''
+      const chars = [...text]
+      chars.forEach((char) => {
+        const span = document.createElement('span')
+        span.className = 'hero-letter'
+        span.textContent = char === ' ' ? '\u00A0' : char
+        if (immediate) {
+          span.style.transform = 'translateY(0%)'
+        }
+        dynamicEl.appendChild(span)
+      })
+      return dynamicEl.querySelectorAll('.hero-letter')
+    }
+
+    let activeLetters = buildLetters(dynamicHeadlineWords[index], true)
+
+    const cycle = () => {
+      const nextIndex = (index + 1) % dynamicHeadlineWords.length
+      const nextWord = dynamicHeadlineWords[nextIndex]
+
+      gsap.timeline({
+        defaults: { ease: 'power3.inOut' },
+        onComplete: () => {
+          index = nextIndex
+          activeLetters = buildLetters(dynamicHeadlineWords[index], true)
+          gsap.delayedCall(2.1, cycle)
+        },
+      })
+        .to(activeLetters, {
+          yPercent: -110,
+          duration: 0.45,
+          ease: 'power3.in',
+          stagger: 0.02,
+          onComplete: () => {
+            activeLetters = buildLetters(nextWord)
+            gsap.fromTo(
+              activeLetters,
+              { yPercent: 110 },
+              {
+                yPercent: 0,
+                duration: 0.75,
+                ease: 'expo.out',
+                stagger: 0.025,
+              }
+            )
+          },
+        })
+    }
+
+    gsap.delayedCall(2.1, cycle)
+  }
+
+  function onResize() {
+    const width = window.innerWidth
+    const height = window.innerHeight
+
+    camera.aspect = width / height
+    camera.updateProjectionMatrix()
+
+    renderer.setSize(width, height)
+    composer.setSize(width, height)
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    composer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+    bloomPass.setSize(width, height)
+  }
+
+  function onKeyDown(event) {
+    if (event.key.toLowerCase() === 'p') {
+      uiPanel.classList.toggle('hidden')
+    } else if (event.key === 'ArrowLeft') {
+      event.preventDefault()
+      uiControls?.adjustScatter?.(-0.2)
+    } else if (event.key === 'ArrowRight') {
+      event.preventDefault()
+      uiControls?.adjustScatter?.(0.2)
+    } else if (event.key.toLowerCase() === 'r' && !event.shiftKey) {
+      // Randomize coins on "R" key (not Shift+R which is for password reset)
+      event.preventDefault()
+      uiControls?.randomizeCoins?.()
+    } else if (event.key.toLowerCase() === 'h') {
+      // Toggle headline visibility
+      event.preventDefault()
+      const heroOverlay = document.querySelector('.hero-overlay')
+      if (heroOverlay) {
+        heroOverlay.classList.toggle('hidden')
+      }
+    }
+  }
+
+  const ChromaticAberrationShader = {
+    uniforms: {
+      tDiffuse: { value: null },
+      offset: { value: new THREE.Vector2(0.003, -0.003) },
+      direction: { value: new THREE.Vector2(1.0, 0.5) },
+    },
+    vertexShader: `
+      varying vec2 vUv;
+      void main() {
+        vUv = uv;
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `,
+    fragmentShader: `
+      uniform sampler2D tDiffuse;
+      uniform vec2 offset;
+      uniform vec2 direction;
+      varying vec2 vUv;
+
+      void main() {
+        vec2 dir = normalize(direction);
+        vec4 baseColor = texture2D(tDiffuse, vUv);
+        float shiftR = texture2D(tDiffuse, vUv + dir * offset.x).r;
+        float shiftB = texture2D(tDiffuse, vUv - dir * offset.y).b;
+        gl_FragColor = vec4(shiftR, baseColor.g, shiftB, baseColor.a);
+      }
+    `,
+  }
+
+  renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: true,
+    alpha: true,
+  })
+  renderer.setSize(window.innerWidth, window.innerHeight)
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  renderer.outputColorSpace = THREE.SRGBColorSpace
+  renderer.toneMapping = THREE.ACESFilmicToneMapping
+  renderer.toneMappingExposure = 1.05
+
+  fogSettings = {
+    strength: 0.65,
+    distance: 32,
+    color: '#4c13c9',
+  }
+
+  coinSettings = {
+    amount: 24,
+    scatter: 9.4,
+    rotationSpeed: 1.59,
+    scale: 1.23,
+  }
+
+  baseCoinDimensions = {
+    radius: 1.35,
+    depth: 0.24,
+  }
+
+  coinFlowSettings = {
+    riseSpeedMin: 0.32,
+    riseSpeedMax: 0.58,
+    fadeInHeight: 1.1,
+    fadeOutBuffer: 1.4,
+    despawnBuffer: 3.0,
+  }
+
+  scene = new THREE.Scene()
+  scene.fog = new THREE.Fog(new THREE.Color(fogSettings.color), 2, fogSettings.distance)
+
+  const pmremGenerator = new THREE.PMREMGenerator(renderer)
+  pmremGenerator.compileEquirectangularShader()
+
+  const gltfLoader = new GLTFLoader()
+
+  new THREE.TextureLoader().load(
+    hdriUrl,
+    (texture) => {
+      texture.mapping = THREE.EquirectangularReflectionMapping
+      texture.colorSpace = THREE.SRGBColorSpace
+      const envTexture = pmremGenerator.fromEquirectangular(texture).texture
+      scene.environment = envTexture
+      texture.dispose()
+      pmremGenerator.dispose()
+    },
+    undefined,
+    () => {
+      pmremGenerator.dispose()
+    }
+  )
+
+  camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100)
+  camera.position.set(0, 1.8, 11.5)
+  scene.add(camera)
+
+  const clock = new THREE.Clock()
+  let elapsedTime = 0
+  cameraShake = {
+    amplitude: 0,
+    frequency: 0,
+    lookHeight: 0.8,
+    offset: new THREE.Vector3(),
+  }
+
+  lightSettings = {
+    hemisphere: {
+      skyColor: '#9abfff',
+      groundColor: '#02060d',
+      intensity: 1.27,
+    },
+    directional: {
+      color: '#ffffff',
+      intensity: 1.2,
+    },
+    rim: {
+      color: '#ffcc88',
+      intensity: 3.38,
+    },
+    fill: {
+      color: '#66aaff',
+      intensity: 1.4,
+    },
+  }
+
+  const dynamicHeadlineWords = [
+    'Horizon',
+    'Symphony',
+    'Nebula',
+    'Odyssey',
+    'Cascade',
+    'Aurora',
+    'Infinity',
+    'Velocity',
+    'Radiance',
+    'Elysium',
+  ]
+
+  baseCameraPosition = new THREE.Vector3().copy(camera.position)
+
+  const { gradientMaterial: gradMat, gradientMesh } = createGradientBackground()
+  gradientMaterial = gradMat
+  scene.add(gradientMesh)
+
+  scene.add(coinGroup)
+
+  gltfLoader.load(
+    coinModelUrl,
+    (gltf) => {
     coinTemplate = gltf.scene
     coinTemplate.traverse((child) => {
       if (child.isMesh) {
@@ -193,101 +1086,101 @@ gltfLoader.load(
     coinTemplate.rotation.set(Math.PI / 2, 0, 0)
     coinTemplate.updateMatrixWorld(true)
 
-    rebuildCoins()
-  },
-  undefined,
-  (error) => {
-    console.error('Failed to load coin GLB', error)
+      rebuildCoins()
+    },
+    undefined,
+    (error) => {
+      console.error('Failed to load coin GLB', error)
+    }
+  )
+
+  dust = createDustParticles()
+  scene.add(dust)
+
+  createLighting()
+
+  const renderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, {
+    type: THREE.HalfFloatType,
+    format: THREE.RGBAFormat,
+    depthBuffer: true,
+    stencilBuffer: false,
+    samples: renderer.capabilities.isWebGL2 ? 4 : 0,
+  })
+
+  composer = new EffectComposer(renderer, renderTarget)
+  composer.setSize(window.innerWidth, window.innerHeight)
+  composer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  const renderPass = new RenderPass(scene, camera)
+  composer.addPass(renderPass)
+
+  bloomPass = new UnrealBloomPass(
+    new THREE.Vector2(window.innerWidth, window.innerHeight),
+    0.17,
+    0.61,
+    0.44
+  )
+  composer.addPass(bloomPass)
+
+  const chromaticAberrationPass = new ShaderPass(ChromaticAberrationShader)
+  chromaticAberrationPass.uniforms.direction.value.set(1.0, 0.5)
+  chromaticAberrationPass.uniforms.offset.value.set(0.0013, -0.0013)
+  composer.addPass(chromaticAberrationPass)
+
+  class SmoothBokehPass extends BokehPass {
+    constructor(scene, camera, params, excluded = []) {
+      super(scene, camera, params)
+      this.ignore = excluded
+      this._visibility = new Map()
+    }
+
+    render(renderer, writeBuffer, readBuffer) {
+      this.ignore.forEach((object3d) => {
+        if (!object3d) return
+        this._visibility.set(object3d, object3d.visible)
+        object3d.visible = false
+      })
+
+      super.render(renderer, writeBuffer, readBuffer)
+
+      this.ignore.forEach((object3d) => {
+        if (!object3d) return
+        const prev = this._visibility.get(object3d)
+        object3d.visible = prev === undefined ? true : prev
+      })
+    }
   }
-)
 
-const dust = createDustParticles()
-scene.add(dust)
+  const bokehPass = new SmoothBokehPass(scene, camera, {
+    focus: 8.0,
+    aperture: 0.00035,
+    maxblur: 0.008,
+  }, [dust])
+  composer.addPass(bokehPass)
 
-createLighting()
+  applyFog()
+  rebuildCoins()
 
-const renderTarget = new THREE.WebGLRenderTarget(window.innerWidth, window.innerHeight, {
-  type: THREE.HalfFloatType,
-  format: THREE.RGBAFormat,
-  depthBuffer: true,
-  stencilBuffer: false,
-  samples: renderer.capabilities.isWebGL2 ? 4 : 0,
-})
+  uiControls = bindUI({
+    bloomPass,
+    chromaticAberrationPass,
+    bokehPass,
+    gradientMaterial,
+    coinMaterials,
+    fogSettings,
+    coinSettings,
+    cameraShake,
+    lightSettings,
+    rebuildCoins,
+    applyFog,
+    composer,
+  })
 
-const composer = new EffectComposer(renderer, renderTarget)
-composer.setSize(window.innerWidth, window.innerHeight)
-composer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-const renderPass = new RenderPass(scene, camera)
-composer.addPass(renderPass)
+  playIntroAnimation()
 
-const bloomPass = new UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.17,
-  0.61,
-  0.44
-)
-composer.addPass(bloomPass)
+  window.addEventListener('resize', onResize)
+  window.addEventListener('keydown', onKeyDown)
 
-const chromaticAberrationPass = new ShaderPass(ChromaticAberrationShader)
-chromaticAberrationPass.uniforms.direction.value.set(1.0, 0.5)
-chromaticAberrationPass.uniforms.offset.value.set(0.0013, -0.0013)
-composer.addPass(chromaticAberrationPass)
-
-class SmoothBokehPass extends BokehPass {
-  constructor(scene, camera, params, excluded = []) {
-    super(scene, camera, params)
-    this.ignore = excluded
-    this._visibility = new Map()
-  }
-
-  render(renderer, writeBuffer, readBuffer) {
-    this.ignore.forEach((object3d) => {
-      if (!object3d) return
-      this._visibility.set(object3d, object3d.visible)
-      object3d.visible = false
-    })
-
-    super.render(renderer, writeBuffer, readBuffer)
-
-    this.ignore.forEach((object3d) => {
-      if (!object3d) return
-      const prev = this._visibility.get(object3d)
-      object3d.visible = prev === undefined ? true : prev
-    })
-  }
-}
-
-const bokehPass = new SmoothBokehPass(scene, camera, {
-  focus: 8.0,
-  aperture: 0.00035,
-  maxblur: 0.008,
-}, [dust])
-composer.addPass(bokehPass)
-
-applyFog()
-rebuildCoins()
-
-uiControls = bindUI({
-  bloomPass,
-  chromaticAberrationPass,
-  bokehPass,
-  gradientMaterial,
-  coinMaterials,
-  fogSettings,
-  coinSettings,
-  cameraShake,
-  lightSettings,
-  rebuildCoins,
-  applyFog,
-  composer,
-})
-
-playIntroAnimation()
-
-window.addEventListener('resize', onResize)
-window.addEventListener('keydown', onKeyDown)
-
-function animate() {
+  function animate() {
   requestAnimationFrame(animate)
 
   const delta = clock.getDelta()
@@ -343,755 +1236,5 @@ function animate() {
   composer.render()
 }
 
-animate()
-
-function createGradientBackground() {
-  const geometry = new THREE.PlaneGeometry(90, 90)
-  const shaderMaterial = new THREE.ShaderMaterial({
-    uniforms: {
-      uColorInner: { value: new THREE.Color('#8a3dd6') },
-      uColorOuter: { value: new THREE.Color('#01000f') },
-      uAspect: { value: window.innerWidth / window.innerHeight },
-    },
-    vertexShader: `
-      varying vec2 vUv;
-      void main() {
-        vUv = uv;
-        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-      }
-    `,
-    fragmentShader: `
-      varying vec2 vUv;
-      uniform vec3 uColorInner;
-      uniform vec3 uColorOuter;
-      uniform float uAspect;
-      void main() {
-        vec2 centered = vUv - 0.5;
-        centered.x *= uAspect * 1.15;
-        float dist = length(centered) * 1.75;
-        float falloff = smoothstep(0.0, 1.0, dist);
-        vec3 color = mix(uColorInner, uColorOuter, falloff);
-        gl_FragColor = vec4(color, 1.0);
-      }
-    `,
-    depthWrite: false,
-    depthTest: false,
-  })
-
-  const mesh = new THREE.Mesh(geometry, shaderMaterial)
-  mesh.position.z = -15
-  mesh.renderOrder = -1
-
-  return { gradientMaterial: shaderMaterial, gradientMesh: mesh }
-}
-
-function createDustParticles() {
-  const particles = 800
-  const geometry = new THREE.BufferGeometry()
-  const positions = new Float32Array(particles * 3)
-  const sizes = new Float32Array(particles)
-
-  for (let i = 0; i < particles; i++) {
-    const radius = 12 * Math.random()
-    const angle = Math.random() * Math.PI * 2
-    const height = (Math.random() - 0.5) * 8
-    positions[i * 3] = Math.cos(angle) * radius
-    positions[i * 3 + 1] = height
-    positions[i * 3 + 2] = Math.sin(angle) * radius
-    sizes[i] = Math.random() * 0.5 + 0.2
-  }
-
-  geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
-  geometry.setAttribute('size', new THREE.BufferAttribute(sizes, 1))
-
-  const material = new THREE.PointsMaterial({
-    color: new THREE.Color(0xa9c6ff),
-    size: 0.04,
-    sizeAttenuation: true,
-    transparent: true,
-    opacity: 0.35,
-    depthWrite: false,
-    blending: THREE.AdditiveBlending,
-  })
-
-  const points = new THREE.Points(geometry, material)
-  points.position.z = -2
-  return points
-}
-
-function createLighting() {
-  hemiLight = new THREE.HemisphereLight(
-    new THREE.Color(lightSettings.hemisphere.skyColor),
-    new THREE.Color(lightSettings.hemisphere.groundColor),
-    lightSettings.hemisphere.intensity
-  )
-  scene.add(hemiLight)
-
-  keyLight = new THREE.DirectionalLight(
-    new THREE.Color(lightSettings.directional.color),
-    lightSettings.directional.intensity
-  )
-  keyLight.position.set(5, 8, 5)
-  keyLight.castShadow = false
-  scene.add(keyLight)
-
-  rimLight = new THREE.SpotLight(
-    new THREE.Color(lightSettings.rim.color),
-    lightSettings.rim.intensity,
-    40,
-    Math.PI / 5,
-    0.35,
-    1.8
-  )
-  rimLight.position.set(-6, 6, -2)
-  scene.add(rimLight)
-
-  fillLight = new THREE.PointLight(
-    new THREE.Color(lightSettings.fill.color),
-    lightSettings.fill.intensity,
-    18
-  )
-  fillLight.position.set(0, -1.5, 3.5)
-  scene.add(fillLight)
-}
-
-function rebuildCoins() {
-  coins.forEach((coin) => {
-    coinGroup.remove(coin.mesh)
-    coin.mesh.traverse((child) => {
-      if (child.isMesh) {
-        if (Array.isArray(child.material)) {
-          child.material.forEach((material) => material.dispose())
-        } else if (child.material) {
-          child.material.dispose()
-        }
-      }
-    })
-  })
-  coins = []
-  coinMaterials.clear()
-
-  if (!coinTemplate) {
-    return
-  }
-
-  for (let i = 0; i < coinSettings.amount; i += 1) {
-    const instance = coinTemplate.clone(true)
-    const trackedMaterials = []
-
-    instance.traverse((child) => {
-      if (child.isMesh) {
-        if (Array.isArray(child.material)) {
-          child.material = child.material.map((mat) => {
-            const cloned = mat.clone()
-            cloned.transparent = true
-            cloned.opacity = 0
-            cloned.envMapIntensity = 1.85
-            cloned.metalness = Math.min(1, (cloned.metalness ?? 1) * 1.05)
-            cloned.roughness = Math.max(0.05, (cloned.roughness ?? 0.3) * 0.9)
-            cloned.needsUpdate = true
-            coinMaterials.add(cloned)
-            trackedMaterials.push(cloned)
-            return cloned
-          })
-        } else if (child.material) {
-          const cloned = child.material.clone()
-          cloned.transparent = true
-          cloned.opacity = 0
-          cloned.envMapIntensity = 1.85
-          cloned.metalness = Math.min(1, (cloned.metalness ?? 1) * 1.05)
-          cloned.roughness = Math.max(0.05, (cloned.roughness ?? 0.3) * 0.9)
-          cloned.needsUpdate = true
-          coinMaterials.add(cloned)
-          trackedMaterials.push(cloned)
-          child.material = cloned
-        }
-      }
-    })
-
-    const coinData = {
-      mesh: instance,
-      materials: trackedMaterials,
-      baseX: 0,
-      baseZ: 0,
-      phase: Math.random() * Math.PI * 2,
-      sway: 0.25 + Math.random() * 0.2,
-      baseRotationX: 0,
-      baseRotationY: 0,
-      spinOffset: Math.random() * Math.PI * 2,
-      spinSpeed: (0.14 + Math.random() * 0.1) * coinSettings.rotationSpeed,
-      riseSpeed: 0.3,
-      spawnY: 0,
-      fadeInEnd: 0,
-      fadeOutStart: 0,
-      despawnY: 0,
-      y: 0,
-      opacity: 0,
-    }
-
-    instance.scale.setScalar(coinTemplateScale * coinSettings.scale)
-    coinGroup.add(instance)
-    coins.push(coinData)
-    alignCoinState(coinData, true)
-  }
-
-  if (uiControls && typeof uiControls.updateEnvironment === 'function') {
-    uiControls.updateEnvironment()
-  }
-}
-
-function findSpawnPosition(targetCoin) {
-  const scatter = coinSettings.scatter
-  const minDistance =
-    (baseCoinDimensions.radius * coinSettings.scale * 2) * 0.85 + 0.6
-  const minDistanceSq = minDistance * minDistance
-  const attempts = 60
-
-  for (let attempt = 0; attempt < attempts; attempt += 1) {
-    const x = (Math.random() - 0.5) * scatter * 2.4
-    const z = (Math.random() - 0.5) * scatter * 2.2
-
-    let separated = true
-    for (const other of coins) {
-      if (other === targetCoin) continue
-      const dx = x - other.baseX
-      const dz = z - other.baseZ
-      if (dx * dx + dz * dz < minDistanceSq) {
-        separated = false
-        break
-      }
-    }
-
-    if (separated) {
-      return { x, z }
-    }
-  }
-
-  return {
-    x: (Math.random() - 0.5) * scatter * 2.4,
-    z: (Math.random() - 0.5) * scatter * 2.2,
-  }
-}
-
-function alignCoinState(coin, initial = false) {
-  const scatter = coinSettings.scatter
-  const spawnDepth = -scatter * 1.7 - 1.5 - Math.random() * 1.8
-  const visibleTop = scatter * 1.25 + 1.6
-
-  const spawnPos = findSpawnPosition(coin)
-  coin.baseX = spawnPos.x
-  coin.baseZ = spawnPos.z
-  coin.baseRotationX = (Math.random() - 0.5) * 0.35
-  coin.baseRotationY = (Math.random() - 0.5) * 0.65
-  coin.spinOffset = Math.random() * Math.PI * 2
-  coin.spinSpeed = (0.14 + Math.random() * 0.1) * coinSettings.rotationSpeed
-  coin.riseSpeed = THREE.MathUtils.lerp(
-    coinFlowSettings.riseSpeedMin,
-    coinFlowSettings.riseSpeedMax,
-    Math.random()
-  )
-
-  coin.spawnY = spawnDepth
-  coin.fadeInEnd = spawnDepth + coinFlowSettings.fadeInHeight
-  coin.fadeOutStart = visibleTop - coinFlowSettings.fadeOutBuffer
-  coin.despawnY = visibleTop + coinFlowSettings.despawnBuffer
-  coin.y = initial
-    ? THREE.MathUtils.lerp(coin.spawnY, coin.fadeOutStart, Math.random())
-    : coin.spawnY
-  coin.opacity = 0
-
-  coin.mesh.position.set(coin.baseX, coin.y, coin.baseZ)
-  coin.mesh.rotation.set(coin.baseRotationX, coin.baseRotationY, coin.spinOffset)
-  updateCoinOpacity(coin, 0)
-}
-
-function updateCoinOpacity(coin, alpha) {
-  const clamped = THREE.MathUtils.clamp(alpha, 0, 1)
-  if (Math.abs(clamped - coin.opacity) < 0.001) {
-    return
-  }
-  coin.opacity = clamped
-  coin.materials.forEach((material) => {
-    material.opacity = clamped
-    material.needsUpdate = true
-  })
-}
-
-function applyFog() {
-  const color = new THREE.Color(fogSettings.color)
-  const distance = Math.max(fogSettings.distance, 6)
-  const near = Math.max(0.1, distance * (1 - fogSettings.strength * 0.85))
-  const far = Math.max(distance, near + 5)
-
-  scene.fog.color.copy(color)
-  scene.fog.near = near
-  scene.fog.far = far
-}
-
-function bindUI({
-  bloomPass,
-  chromaticAberrationPass,
-  bokehPass,
-  gradientMaterial,
-  coinMaterials,
-  fogSettings,
-  coinSettings,
-  cameraShake,
-  lightSettings,
-  rebuildCoins,
-  applyFog,
-  composer,
-}) {
-  const elements = {
-    bloomEnabled: document.getElementById('bloom-enabled'),
-    bloomStrength: document.getElementById('bloom-strength'),
-    bloomRadius: document.getElementById('bloom-radius'),
-    bloomThreshold: document.getElementById('bloom-threshold'),
-    caEnabled: document.getElementById('ca-enabled'),
-    caOffset: document.getElementById('ca-offset'),
-    dofEnabled: document.getElementById('dof-enabled'),
-    dofFocus: document.getElementById('dof-focus'),
-    dofAperture: document.getElementById('dof-aperture'),
-    dofMaxblur: document.getElementById('dof-maxblur'),
-    gradientInner: document.getElementById('gradient-inner'),
-    gradientOuter: document.getElementById('gradient-outer'),
-    envIntensity: document.getElementById('env-intensity'),
-    fogStrength: document.getElementById('fog-strength'),
-    fogDistance: document.getElementById('fog-distance'),
-    fogColor: document.getElementById('fog-color'),
-    coinAmount: document.getElementById('coin-amount'),
-    coinScatter: document.getElementById('coin-scatter'),
-    coinRotation: document.getElementById('coin-rotation'),
-    coinScale: document.getElementById('coin-scale'),
-    cameraShakeAmp: document.getElementById('camera-shake-amp'),
-    cameraShakeFreq: document.getElementById('camera-shake-freq'),
-    cameraLookHeight: document.getElementById('camera-look-height'),
-    hemiSky: document.getElementById('hemi-sky'),
-    hemiGround: document.getElementById('hemi-ground'),
-    hemiStrength: document.getElementById('hemi-strength'),
-    keyColor: document.getElementById('key-color'),
-    keyStrength: document.getElementById('key-strength'),
-    rimColor: document.getElementById('rim-color'),
-    rimStrength: document.getElementById('rim-strength'),
-    fillColor: document.getElementById('fill-color'),
-    fillStrength: document.getElementById('fill-strength'),
-    copyButton: document.getElementById('copy-settings'),
-  }
-
-  elements.fogStrength.value = fogSettings.strength
-  elements.fogDistance.value = fogSettings.distance
-  elements.fogColor.value = fogSettings.color
-
-  elements.coinAmount.value = coinSettings.amount
-  elements.coinScatter.value = coinSettings.scatter
-  elements.coinRotation.value = coinSettings.rotationSpeed
-  elements.coinScale.value = coinSettings.scale
-  if (elements.cameraShakeAmp) {
-    elements.cameraShakeAmp.value = cameraShake.amplitude
-  }
-  if (elements.cameraShakeFreq) {
-    elements.cameraShakeFreq.value = cameraShake.frequency
-  }
-  if (elements.cameraLookHeight) {
-    elements.cameraLookHeight.value = cameraShake.lookHeight
-  }
-  if (elements.hemiSky) {
-    elements.hemiSky.value = lightSettings.hemisphere.skyColor
-  }
-  if (elements.hemiGround) {
-    elements.hemiGround.value = lightSettings.hemisphere.groundColor
-  }
-  if (elements.hemiStrength) {
-    elements.hemiStrength.value = lightSettings.hemisphere.intensity
-  }
-  if (elements.keyColor) {
-    elements.keyColor.value = lightSettings.directional.color
-  }
-  if (elements.keyStrength) {
-    elements.keyStrength.value = lightSettings.directional.intensity
-  }
-  if (elements.rimColor) {
-    elements.rimColor.value = lightSettings.rim.color
-  }
-  if (elements.rimStrength) {
-    elements.rimStrength.value = lightSettings.rim.intensity
-  }
-  if (elements.fillColor) {
-    elements.fillColor.value = lightSettings.fill.color
-  }
-  if (elements.fillStrength) {
-    elements.fillStrength.value = lightSettings.fill.intensity
-  }
-
-  function updateBloom() {
-    bloomPass.enabled = elements.bloomEnabled.checked
-    bloomPass.strength = parseFloat(elements.bloomStrength.value)
-    bloomPass.radius = parseFloat(elements.bloomRadius.value)
-    bloomPass.threshold = parseFloat(elements.bloomThreshold.value)
-  }
-
-  function updateChromaticAberration() {
-    const offsetValue = parseFloat(elements.caOffset.value)
-    chromaticAberrationPass.enabled = elements.caEnabled.checked
-    chromaticAberrationPass.uniforms.offset.value.set(offsetValue, -offsetValue)
-  }
-
-  function updateDOF() {
-    bokehPass.enabled = elements.dofEnabled.checked
-    bokehPass.materialBokeh.uniforms.focus.value = parseFloat(elements.dofFocus.value)
-    bokehPass.materialBokeh.uniforms.aperture.value = parseFloat(elements.dofAperture.value)
-    bokehPass.materialBokeh.uniforms.maxblur.value = parseFloat(elements.dofMaxblur.value)
-  }
-
-  function updateGradient() {
-    gradientMaterial.uniforms.uColorInner.value.set(elements.gradientInner.value)
-    gradientMaterial.uniforms.uColorOuter.value.set(elements.gradientOuter.value)
-  }
-
-  function updateFog() {
-    fogSettings.strength = parseFloat(elements.fogStrength.value)
-    fogSettings.distance = parseFloat(elements.fogDistance.value)
-    fogSettings.color = elements.fogColor.value
-    applyFog()
-  }
-
-  function updateCoins() {
-    coinSettings.amount = Math.max(3, Math.min(40, Math.round(elements.coinAmount.value)))
-    elements.coinAmount.value = coinSettings.amount
-    coinSettings.scatter = parseFloat(elements.coinScatter.value)
-    coinSettings.rotationSpeed = parseFloat(elements.coinRotation.value)
-    coinSettings.scale = parseFloat(elements.coinScale.value)
-    rebuildCoins()
-  }
-
-  function adjustScatter(delta) {
-    const min = parseFloat(elements.coinScatter.min)
-    const max = parseFloat(elements.coinScatter.max)
-    coinSettings.scatter = THREE.MathUtils.clamp(coinSettings.scatter + delta, min, max)
-    elements.coinScatter.value = coinSettings.scatter.toFixed(2)
-    updateCoins()
-  }
-
-  function updateEnvironment() {
-    const intensity = parseFloat(elements.envIntensity.value)
-    coinMaterials.forEach((material) => {
-      material.envMapIntensity = intensity
-      material.needsUpdate = true
-    })
-  }
-
-  function updateCamera() {
-    if (elements.cameraShakeAmp) {
-      cameraShake.amplitude = parseFloat(elements.cameraShakeAmp.value)
-    }
-    if (elements.cameraShakeFreq) {
-      cameraShake.frequency = parseFloat(elements.cameraShakeFreq.value)
-    }
-    if (elements.cameraLookHeight) {
-      cameraShake.lookHeight = parseFloat(elements.cameraLookHeight.value)
-    }
-  }
-
-  function updateHemisphereLight() {
-    if (!hemiLight) return
-    if (elements.hemiSky) {
-      lightSettings.hemisphere.skyColor = elements.hemiSky.value
-      hemiLight.color.set(lightSettings.hemisphere.skyColor)
-    }
-    if (elements.hemiGround) {
-      lightSettings.hemisphere.groundColor = elements.hemiGround.value
-      hemiLight.groundColor.set(lightSettings.hemisphere.groundColor)
-    }
-    if (elements.hemiStrength) {
-      lightSettings.hemisphere.intensity = parseFloat(elements.hemiStrength.value)
-      hemiLight.intensity = lightSettings.hemisphere.intensity
-    }
-  }
-
-  function updateKeyLight() {
-    if (!keyLight) return
-    if (elements.keyColor) {
-      lightSettings.directional.color = elements.keyColor.value
-      keyLight.color.set(lightSettings.directional.color)
-    }
-    if (elements.keyStrength) {
-      lightSettings.directional.intensity = parseFloat(elements.keyStrength.value)
-      keyLight.intensity = lightSettings.directional.intensity
-    }
-  }
-
-  function updateRimLight() {
-    if (!rimLight) return
-    if (elements.rimColor) {
-      lightSettings.rim.color = elements.rimColor.value
-      rimLight.color.set(lightSettings.rim.color)
-    }
-    if (elements.rimStrength) {
-      lightSettings.rim.intensity = parseFloat(elements.rimStrength.value)
-      rimLight.intensity = lightSettings.rim.intensity
-    }
-  }
-
-  function updateFillLight() {
-    if (!fillLight) return
-    if (elements.fillColor) {
-      lightSettings.fill.color = elements.fillColor.value
-      fillLight.color.set(lightSettings.fill.color)
-    }
-    if (elements.fillStrength) {
-      lightSettings.fill.intensity = parseFloat(elements.fillStrength.value)
-      fillLight.intensity = lightSettings.fill.intensity
-    }
-  }
-
-  function copySettings() {
-    const config = {
-      bloom: {
-        enabled: elements.bloomEnabled.checked,
-        strength: parseFloat(elements.bloomStrength.value),
-        radius: parseFloat(elements.bloomRadius.value),
-        threshold: parseFloat(elements.bloomThreshold.value),
-      },
-      chromaticAberration: {
-        enabled: elements.caEnabled.checked,
-        offset: parseFloat(elements.caOffset.value),
-      },
-      depthOfField: {
-        enabled: elements.dofEnabled.checked,
-        focus: parseFloat(elements.dofFocus.value),
-        aperture: parseFloat(elements.dofAperture.value),
-        maxblur: parseFloat(elements.dofMaxblur.value),
-      },
-      gradient: {
-        inner: elements.gradientInner.value,
-        outer: elements.gradientOuter.value,
-      },
-      fog: {
-        strength: parseFloat(elements.fogStrength.value),
-        distance: parseFloat(elements.fogDistance.value),
-        color: elements.fogColor.value,
-      },
-      coins: {
-        amount: coinSettings.amount,
-        scatter: coinSettings.scatter,
-        rotationSpeed: coinSettings.rotationSpeed,
-        scale: coinSettings.scale,
-      },
-      camera:
-        elements.cameraShakeAmp && elements.cameraShakeFreq && elements.cameraLookHeight
-          ? {
-              amplitude: parseFloat(elements.cameraShakeAmp.value),
-              frequency: parseFloat(elements.cameraShakeFreq.value),
-              lookHeight: parseFloat(elements.cameraLookHeight.value),
-            }
-          : undefined,
-      lights: {
-        hemisphere:
-          elements.hemiSky && elements.hemiGround && elements.hemiStrength
-            ? {
-                skyColor: elements.hemiSky.value,
-                groundColor: elements.hemiGround.value,
-                intensity: parseFloat(elements.hemiStrength.value),
-              }
-            : undefined,
-        directional:
-          elements.keyColor && elements.keyStrength
-            ? {
-                color: elements.keyColor.value,
-                intensity: parseFloat(elements.keyStrength.value),
-              }
-            : undefined,
-        rim:
-          elements.rimColor && elements.rimStrength
-            ? {
-                color: elements.rimColor.value,
-                intensity: parseFloat(elements.rimStrength.value),
-              }
-            : undefined,
-        fill:
-          elements.fillColor && elements.fillStrength
-            ? {
-                color: elements.fillColor.value,
-                intensity: parseFloat(elements.fillStrength.value),
-              }
-            : undefined,
-      },
-      environment: {
-        reflection: parseFloat(elements.envIntensity.value),
-      },
-    }
-
-    navigator.clipboard?.writeText(JSON.stringify(config, null, 2)).then(
-      () => {
-        const label = elements.copyButton.textContent
-        elements.copyButton.textContent = 'Copied!'
-        setTimeout(() => {
-          elements.copyButton.textContent = label
-        }, 1500)
-      },
-      () => {
-        window.alert(JSON.stringify(config, null, 2))
-      }
-    )
-  }
-
-  elements.bloomEnabled.addEventListener('change', updateBloom)
-  elements.bloomStrength.addEventListener('input', updateBloom)
-  elements.bloomRadius.addEventListener('input', updateBloom)
-  elements.bloomThreshold.addEventListener('input', updateBloom)
-
-  elements.caEnabled.addEventListener('change', updateChromaticAberration)
-  elements.caOffset.addEventListener('input', updateChromaticAberration)
-
-  elements.dofEnabled.addEventListener('change', updateDOF)
-  elements.dofFocus.addEventListener('input', updateDOF)
-  elements.dofAperture.addEventListener('input', updateDOF)
-  elements.dofMaxblur.addEventListener('input', updateDOF)
-
-  elements.gradientInner.addEventListener('input', updateGradient)
-  elements.gradientOuter.addEventListener('input', updateGradient)
-  elements.envIntensity.addEventListener('input', updateEnvironment)
-  elements.fogStrength.addEventListener('input', updateFog)
-  elements.fogDistance.addEventListener('input', updateFog)
-  elements.fogColor.addEventListener('input', updateFog)
-  elements.coinAmount.addEventListener('change', updateCoins)
-  elements.coinAmount.addEventListener('input', (event) => {
-    event.target.setAttribute('value', event.target.value)
-  })
-  elements.coinScatter.addEventListener('input', updateCoins)
-  elements.coinRotation.addEventListener('input', updateCoins)
-  elements.coinScale.addEventListener('input', updateCoins)
-  elements.cameraShakeAmp?.addEventListener('input', updateCamera)
-  elements.cameraShakeFreq?.addEventListener('input', updateCamera)
-  elements.cameraLookHeight?.addEventListener('input', updateCamera)
-  elements.hemiSky?.addEventListener('input', updateHemisphereLight)
-  elements.hemiGround?.addEventListener('input', updateHemisphereLight)
-  elements.hemiStrength?.addEventListener('input', updateHemisphereLight)
-  elements.keyColor?.addEventListener('input', updateKeyLight)
-  elements.keyStrength?.addEventListener('input', updateKeyLight)
-  elements.rimColor?.addEventListener('input', updateRimLight)
-  elements.rimStrength?.addEventListener('input', updateRimLight)
-  elements.fillColor?.addEventListener('input', updateFillLight)
-  elements.fillStrength?.addEventListener('input', updateFillLight)
-
-  elements.copyButton.addEventListener('click', copySettings)
-
-  updateBloom()
-  updateChromaticAberration()
-  updateDOF()
-  updateGradient()
-  updateEnvironment()
-  updateFog()
-  updateCamera()
-  updateHemisphereLight()
-  updateKeyLight()
-  updateRimLight()
-  updateFillLight()
-
-  return {
-    updateBloom,
-    updateChromaticAberration,
-    updateDOF,
-    updateGradient,
-    updateEnvironment,
-    updateFog,
-    updateCoins,
-    updateCamera,
-    adjustScatter,
-    updateHemisphereLight,
-    updateKeyLight,
-    updateRimLight,
-    updateFillLight,
-  }
-}
-
-function playIntroAnimation() {
-  const tl = gsap.timeline({ delay: 0.4, defaults: { ease: 'power3.out', duration: 1.2 } })
-  tl.to('.hero-headline', { opacity: 1, y: 0, duration: 1.4 }, 0)
-    .add(() => startHeadlineCycle(), '-=0.1')
-}
-
-function startHeadlineCycle() {
-  const dynamicEl = document.querySelector('.hero-word-dynamic')
-  if (!dynamicEl || dynamicHeadlineWords.length === 0) return
-
-  let index = 0
-
-  const buildLetters = (text, immediate = false) => {
-    dynamicEl.innerHTML = ''
-    const chars = [...text]
-    chars.forEach((char) => {
-      const span = document.createElement('span')
-      span.className = 'hero-letter'
-      span.textContent = char === ' ' ? '\u00A0' : char
-      if (immediate) {
-        span.style.transform = 'translateY(0%)'
-      }
-      dynamicEl.appendChild(span)
-    })
-    return dynamicEl.querySelectorAll('.hero-letter')
-  }
-
-  let activeLetters = buildLetters(dynamicHeadlineWords[index], true)
-
-  const cycle = () => {
-    const nextIndex = (index + 1) % dynamicHeadlineWords.length
-    const nextWord = dynamicHeadlineWords[nextIndex]
-
-    gsap.timeline({
-      defaults: { ease: 'power3.inOut' },
-      onComplete: () => {
-        index = nextIndex
-        activeLetters = buildLetters(dynamicHeadlineWords[index], true)
-        gsap.delayedCall(2.1, cycle)
-      },
-    })
-      .to(activeLetters, {
-        yPercent: -110,
-        duration: 0.45,
-        ease: 'power3.in',
-        stagger: 0.02,
-        onComplete: () => {
-          activeLetters = buildLetters(nextWord)
-          gsap.fromTo(
-            activeLetters,
-            { yPercent: 110 },
-            {
-              yPercent: 0,
-              duration: 0.75,
-              ease: 'expo.out',
-              stagger: 0.025,
-            }
-          )
-        },
-      })
-  }
-
-  gsap.delayedCall(2.1, cycle)
-}
-
-function onResize() {
-  const width = window.innerWidth
-  const height = window.innerHeight
-
-  camera.aspect = width / height
-  camera.updateProjectionMatrix()
-
-  renderer.setSize(width, height)
-  composer.setSize(width, height)
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  composer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
-  bloomPass.setSize(width, height)
-}
-
-function onKeyDown(event) {
-  if (event.key.toLowerCase() === 'p') {
-    uiPanel.classList.toggle('hidden')
-  } else if (event.key === 'ArrowLeft') {
-    event.preventDefault()
-    uiControls?.adjustScatter?.(-0.2)
-  } else if (event.key === 'ArrowRight') {
-    event.preventDefault()
-    uiControls?.adjustScatter?.(0.2)
-  }
+  animate()
 }

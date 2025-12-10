@@ -13,7 +13,24 @@
     <title>Coldcoins Hero</title>
   </head>
   <body>
-    <div id="app">
+    <div id="password-gate" class="password-gate">
+      <div class="password-gate-content">
+        <h2>Enter Password</h2>
+        <input type="password" id="password-input" placeholder="Password" autocomplete="off" />
+        <p class="password-error" id="password-error"></p>
+        <button id="password-submit">Enter</button>
+        <div class="password-shortcuts">
+          <p class="shortcuts-title">Keyboard Shortcuts:</p>
+          <ul class="shortcuts-list">
+            <li><kbd>P</kbd> - Toggle Settings Panel</li>
+            <li><kbd>R</kbd> - Randomize Coins</li>
+            <li><kbd>H</kbd> - Toggle Headline</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div id="app" class="hidden">
       <canvas id="scene"></canvas>
 
       <div class="hero-overlay">
@@ -115,7 +132,7 @@
           <h3>Coins</h3>
           <label>
             Amount
-            <input type="number" id="coin-amount" min="3" max="40" step="1" value="24" />
+            <input type="number" id="coin-amount" min="3" max="28" step="1" value="24" />
           </label>
           <label>
             Scatter
