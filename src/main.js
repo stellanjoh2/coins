@@ -199,6 +199,7 @@ function initScene() {
   let lightSettings = null
   let baseCameraPosition = null
   let dust = null
+  let headlineSettings = null
 
   function createLighting() {
     hemiLight = new THREE.HemisphereLight(
@@ -456,6 +457,8 @@ function initScene() {
       rimStrength: document.getElementById('rim-strength'),
       fillColor: document.getElementById('fill-color'),
       fillStrength: document.getElementById('fill-strength'),
+      headlineInput: document.getElementById('headline-input'),
+      headlineApply: document.getElementById('headline-apply'),
       copyButton: document.getElementById('copy-settings'),
     }
 
@@ -467,6 +470,9 @@ function initScene() {
     elements.coinScatter.value = coinSettings.scatter
     elements.coinRotation.value = coinSettings.rotationSpeed
     elements.coinScale.value = coinSettings.scale
+    if (elements.headlineInput) {
+      elements.headlineInput.value = headlineSettings.text
+    }
     if (elements.cameraShakeAmp) {
       elements.cameraShakeAmp.value = cameraShake.amplitude
     }
@@ -652,6 +658,44 @@ function initScene() {
       }
     }
 
+    function updateHeadline() {
+      const headlineText = elements.headlineInput.value.trim()
+      if (!headlineText) return
+
+      headlineSettings.text = headlineText
+
+      // Split headline into two lines
+      // Try to split at a natural break point (space) near the middle
+      const words = headlineText.split(' ')
+      let line1 = ''
+      let line2 = ''
+
+      if (words.length === 1) {
+        // Single word - split in half if long enough
+        const mid = Math.floor(headlineText.length / 2)
+        line1 = headlineText.substring(0, mid)
+        line2 = headlineText.substring(mid)
+      } else {
+        // Multiple words - split near the middle
+        const mid = Math.floor(words.length / 2)
+        line1 = words.slice(0, mid).join(' ')
+        line2 = words.slice(mid).join(' ')
+      }
+
+      // Update the DOM
+      const headlineEl = document.querySelector('.hero-headline')
+      if (headlineEl) {
+        const lines = headlineEl.querySelectorAll('.hero-line')
+        if (lines.length >= 2) {
+          lines[0].textContent = line1
+          lines[1].textContent = line2
+        } else {
+          // Rebuild if structure is different
+          headlineEl.innerHTML = `<span class="hero-line">${line1}</span><span class="hero-line">${line2}</span>`
+        }
+      }
+    }
+
     function copySettings() {
       const config = {
         bloom: {
@@ -684,6 +728,9 @@ function initScene() {
           scatter: coinSettings.scatter,
           rotationSpeed: coinSettings.rotationSpeed,
           scale: coinSettings.scale,
+        },
+        headline: {
+          text: headlineSettings.text,
         },
         camera:
           elements.cameraShakeAmp && elements.cameraShakeFreq && elements.cameraLookHeight
@@ -781,6 +828,13 @@ function initScene() {
     elements.rimStrength?.addEventListener('input', updateRimLight)
     elements.fillColor?.addEventListener('input', updateFillLight)
     elements.fillStrength?.addEventListener('input', updateFillLight)
+
+    elements.headlineApply?.addEventListener('click', updateHeadline)
+    elements.headlineInput?.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') {
+        updateHeadline()
+      }
+    })
 
     elements.copyButton.addEventListener('click', copySettings)
 
@@ -895,6 +949,25 @@ function initScene() {
 
   function onKeyDown(event) {
     if (event.key.toLowerCase() === 'p') {
+      // Pause/unpause all animations
+      event.preventDefault()
+      isPaused = !isPaused
+      if (isPaused) {
+        pauseStartTime = clock.getElapsedTime()
+        // Pause GSAP animations
+        gsap.globalTimeline.pause()
+      } else {
+        // Resume GSAP animations
+        gsap.globalTimeline.resume()
+        // Adjust clock to account for pause duration
+        const pauseDuration = clock.getElapsedTime() - pauseStartTime
+        clock.startTime += pauseDuration
+        // Reset delta to avoid large jump
+        clock.getDelta()
+      }
+    } else if (event.key.toLowerCase() === 'u') {
+      // Toggle UI panel
+      event.preventDefault()
       uiPanel.classList.toggle('hidden')
     } else if (event.key === 'ArrowLeft') {
       event.preventDefault()
@@ -969,6 +1042,10 @@ function initScene() {
     scale: 1.23,
   }
 
+  headlineSettings = {
+    text: 'This is a headline.',
+  }
+
   baseCoinDimensions = {
     radius: 1.35,
     depth: 0.24,
@@ -1012,6 +1089,9 @@ function initScene() {
 
   const clock = new THREE.Clock()
   let elapsedTime = 0
+  let isPaused = false
+  let pauseStartTime = 0
+  let pausedElapsedTime = 0
   cameraShake = {
     amplitude: 0,
     frequency: 0,
@@ -1181,10 +1261,16 @@ function initScene() {
   window.addEventListener('keydown', onKeyDown)
 
   function animate() {
-  requestAnimationFrame(animate)
+    requestAnimationFrame(animate)
 
-  const delta = clock.getDelta()
-  elapsedTime += delta
+    if (isPaused) {
+      // Still render but don't update animations
+      composer.render()
+      return
+    }
+
+    const delta = clock.getDelta()
+    elapsedTime += delta
 
   coins.forEach((coin) => {
     coin.y += coin.riseSpeed * delta

@@ -317,6 +317,52 @@ body {
   align-self: flex-start;
 }
 
+.ui-panel input[type='text'] {
+  width: 100%;
+  padding: 0.65rem 0.85rem;
+  border: 1px solid rgba(143, 169, 255, 0.35);
+  border-radius: 8px;
+  background: rgba(13, 22, 39, 0.7);
+  color: #f7f9fc;
+  font-family: 'Inter', sans-serif;
+  font-size: 0.9rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.ui-panel input[type='text']:focus {
+  outline: none;
+  border-color: rgba(143, 169, 255, 0.6);
+  box-shadow: 0 0 0 2px rgba(143, 169, 255, 0.1);
+}
+
+.ui-panel input[type='text']::placeholder {
+  color: rgba(220, 230, 255, 0.4);
+}
+
+.ui-panel section button {
+  margin-top: 0.5rem;
+  width: 100%;
+  padding: 0.6rem 1rem;
+  border-radius: 10px;
+  border: none;
+  background: linear-gradient(135deg, #5a2dff, #8a3dd6);
+  color: #e5ecff;
+  font-weight: 600;
+  font-size: 0.875rem;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: transform 200ms ease, box-shadow 200ms ease;
+}
+
+.ui-panel section button:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(90, 45, 255, 0.3);
+}
+
+.ui-panel section button:active {
+  transform: translateY(0);
+}
+
 .ui-panel button {
   margin-top: 1rem;
   width: 100%;
