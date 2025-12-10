@@ -397,6 +397,21 @@ function initScene() {
     if (uiControls && typeof uiControls.updateEnvironment === 'function') {
       uiControls.updateEnvironment()
     }
+
+    // If paused, calculate opacity for coins based on their Y position
+    // so they're visible when randomized during pause
+    if (isPaused) {
+      coins.forEach((coin) => {
+        let alpha = 1
+        if (coin.y < coin.fadeInEnd) {
+          alpha = (coin.y - coin.spawnY) / (coin.fadeInEnd - coin.spawnY)
+        } else if (coin.y > coin.fadeOutStart) {
+          alpha = (coin.despawnY - coin.y) / (coin.despawnY - coin.fadeOutStart)
+        }
+        updateCoinOpacity(coin, alpha)
+      })
+      composer.render()
+    }
   }
 
   function applyFog() {
